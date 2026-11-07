@@ -1,13 +1,8 @@
-﻿
-# LedgerLine - AI Development Prompt Log
+﻿# LedgerLine - AI Development Prompt Log
 
-Project: LedgerLine
+**Project:** LedgerLine
 
-Date: 2026-11-06
-
-This document records AI assistance used during development.
-
-All implementation decisions and code are reviewed and tested by the developer.
+**Purpose:** This document records AI assistance used during development. All implementation decisions and generated code are reviewed, modified where necessary, and tested by the developer.
 
 ## Entry 1 - Backend Foundation
 
@@ -31,7 +26,7 @@ Configured the backend and verified compilation and database connectivity.
 
 **Commit reference:**
 
-9617633 - Initialize LedgerLine backend with JWT authentication.
+`9617633` - Initialize LedgerLine backend with JWT authentication.
 
 ## Entry 2 - Registration and Authentication
 
@@ -55,7 +50,7 @@ Used BCrypt password hashing, JWT authentication, and stateless security configu
 
 **Commit reference:**
 
-9617633 - Initialize LedgerLine backend with JWT authentication.
+`9617633` - Initialize LedgerLine backend with JWT authentication.
 
 ## Entry 3 - Account Creation
 
@@ -79,7 +74,7 @@ Implemented server-generated account numbers, zero initial balance, INR currency
 
 **Commit reference:**
 
-eab56e3 - Add secure account management and ownership checks.
+`eab56e3` - Add secure account management and ownership checks.
 
 ## Entry 4 - Authentication and Access Control
 
@@ -103,7 +98,7 @@ Configured an HTTP 401 authentication entry point and verified the unauthenticat
 
 **Commit reference:**
 
-eab56e3 - Add secure account management and ownership checks.
+`eab56e3` - Add secure account management and ownership checks.
 
 ## Entry 5 - Account Ownership Verification
 
@@ -127,7 +122,7 @@ Verified that account retrieval checks both account ID and authenticated owner I
 
 **Commit reference:**
 
-eab56e3 - Add secure account management and ownership checks.
+`eab56e3` - Add secure account management and ownership checks.
 
 ## Entry 6 - Automated Security and Ownership Testing
 
@@ -147,8 +142,60 @@ The security rules needed automated HTTP-level verification in addition to earli
 
 **What was done instead:**
 
-Added four MockMvc security tests covering the public health endpoint, unauthenticated account access, registration, and login. Ran the complete Maven test suite. All eight tests passed with zero failures and zero errors.
+Added four MockMvc security tests covering the public health endpoint, unauthenticated account access, registration, and login. The complete Maven test suite at that stage contained eight tests, all passing with zero failures and zero errors.
 
 **Commit reference:**
 
-bb59e2a - Add automated security and account ownership tests.
+`bb59e2a` - Add automated security and account ownership tests.
+
+## Entry 7 - Money Movement and Transaction Integrity
+
+**Date:** 2026-11-07
+
+**What was asked:**
+
+How to implement deposits, withdrawals, and transfers while protecting account balances and recording transaction history.
+
+**Tool output:**
+
+Guidance for transaction services, repository locking, validation, transaction records, ledger entries, and balance integrity checks.
+
+**What was wrong:**
+
+Money movement required careful handling of account ownership, account status, available balances, currency compatibility, and concurrent updates. Initial implementations and test configurations required debugging.
+
+**What was done instead:**
+
+Implemented transaction-service checks for ownership, account status, sufficient funds, currency compatibility, and maximum balance. Added account locking and transaction/ledger persistence within database transactions. Verified transaction-service behavior through automated tests; database-level persistence and concurrency remain subject to further integration testing.
+
+**Commit reference:**
+
+Implementation and test milestone not yet committed as of 2026-11-07.
+
+## Entry 8 - Transaction Security and Edge-Case Testing
+
+**Date:** 2026-11-07
+
+**What was asked:**
+
+How to test transaction failures and security edge cases in addition to successful money movements.
+
+**Tool output:**
+
+JUnit and Mockito test guidance for transaction-service behavior, account restrictions, and ledger access.
+
+**What was wrong:**
+
+Initial test execution exposed an unnecessary Mockito stubbing issue. The test setup needed to be narrowed to the dependencies actually used by the test.
+
+**What was done instead:**
+
+Corrected the test setup and added transaction tests covering inactive accounts, insufficient funds, invalid amounts, currency mismatch, maximum balance, idempotency-key validation, ownership restrictions, and ledger access restrictions. The latest complete Maven test run on 2026-11-07 reported 25 tests, zero failures, zero errors, and zero skipped tests.
+
+**Commit reference:**
+
+Test milestone not yet committed as of 2026-11-07.
+
+---
+
+**Development note:** Test counts and commit references represent the state at the time each entry was recorded. Pending work and uncommitted milestones are identified explicitly rather than presented as completed or committed.
