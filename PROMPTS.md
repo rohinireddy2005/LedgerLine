@@ -242,7 +242,7 @@ Added API-level tests using bearer tokens to verify that invalid and expired JWT
 
 **Commit reference:**
 
-Not yet committed as of 2026-11-08.
+b558b66 - Enforce role-based API authorization and expand security tests.
 
 ## Entry 11 - Role-Based API Authorization
 
@@ -268,7 +268,7 @@ Dedicated administrative management and auditor reporting endpoints remain futur
 
 **Commit reference:**
 
-Not yet committed as of 2026-11-08.
+b558b66 - Enforce role-based API authorization and expand security tests.
 
 ---
 
