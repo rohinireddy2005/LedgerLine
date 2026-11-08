@@ -64,9 +64,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
 
             .sessionManagement(session ->
-                session.sessionCreationPolicy(
-                    SessionCreationPolicy.STATELESS
-                )
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
 
             .authenticationProvider(authenticationProvider())
@@ -79,17 +77,27 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
+                // Public registration and login
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/auth/register",
                     "/api/auth/login"
                 ).permitAll()
 
+                // Public health check
                 .requestMatchers(
                     HttpMethod.GET,
                     "/api/health"
                 ).permitAll()
 
+                // Existing account and transaction APIs:
+                // only account holders can access them.
+                .requestMatchers(
+                    "/api/accounts/**",
+                    "/api/transactions/**"
+                ).hasRole("ACCOUNT_HOLDER")
+
+                // Everything else requires authentication.
                 .anyRequest().authenticated()
             )
 

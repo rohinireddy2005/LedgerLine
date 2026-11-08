@@ -1,10 +1,11 @@
+
 # LedgerLine - Threat Model
 
 ## 1. Project Overview
 
 LedgerLine is a money movement application that provides account management, financial transactions, and an auditable transaction ledger.
 
-The application uses React, Java, Spring Boot, Spring Security, JWT, and MySQL.
+The backend uses Java 21, Spring Boot, Spring Security, JWT authentication, Spring Data JPA, and PostgreSQL. The planned frontend uses React and Vite.
 
 This threat model identifies important assets, potential security threats, implemented mitigations, and controls that still require implementation or verification.
 
@@ -18,6 +19,7 @@ This threat model identifies important assets, potential security threats, imple
 - Ledger entries
 - Administrative and auditor access
 - Database credentials and application secrets
+- Financial transaction integrity and audit history
 
 ## 3. Identified Threats and Mitigations
 
@@ -32,7 +34,7 @@ This threat model identifies important assets, potential security threats, imple
 - Return HTTP 401 for unauthenticated requests.
 - Keep the application stateless.
 
-**Implementation status:** Implemented and tested through automated security tests.
+**Implementation status:** Implemented and tested through API-level security tests. Unauthenticated requests to protected account APIs are rejected with HTTP 401.
 
 ### Threat 2 - Broken Object-Level Authorization
 
@@ -43,9 +45,9 @@ This threat model identifies important assets, potential security threats, imple
 - Derive the authenticated user's identity from the security context.
 - Verify account ownership on account-specific requests.
 - Never trust an owner ID supplied by the client.
-- Return HTTP 404 when an account does not belong to the authenticated user.
+- Reject unauthorized access to another user's account and ledger.
 
-**Implementation status:** Account ownership checks are implemented. Automated account ownership and ledger access tests have been added.
+**Implementation status:** Account ownership checks are implemented. PostgreSQL integration tests verify that one user cannot access another user's account, view another user's ledger, or initiate transactions against another user's account.
 
 ### Threat 3 - Password Exposure
 
@@ -58,7 +60,7 @@ This threat model identifies important assets, potential security threats, imple
 - Never return passwords in API responses.
 - Keep credentials outside source control.
 
-**Implementation status:** BCrypt password hashing and response DTO separation are implemented. Secret management and repository configuration must continue to be reviewed before deployment.
+**Implementation status:** BCrypt password hashing with strength 12 and dedicated response DTOs are implemented. Environment-based secret configuration is used. Final deployment secret-management and repository reviews remain necessary.
 
 ### Threat 4 - Token Misuse
 
@@ -70,8 +72,9 @@ This threat model identifies important assets, potential security threats, imple
 - Validate token signatures and expiration.
 - Use a limited token lifetime.
 - Keep JWT secrets outside the repository.
+- Reject invalid and expired tokens.
 
-**Implementation status:** JWT authentication, signature validation, expiration configuration, and environment-based secret configuration are implemented. Additional invalid-token and expired-token tests remain part of security verification.
+**Implementation status:** JWT authentication, signature validation, expiration validation, and environment-based secret configuration are implemented. Automated API-level tests verify that malformed and expired JWTs receive HTTP 401.
 
 ### Threat 5 - Duplicate Financial Requests
 
@@ -79,13 +82,13 @@ This threat model identifies important assets, potential security threats, imple
 
 **Mitigations:**
 
-- Use idempotency keys for financial operations.
+- Require idempotency keys for financial operations.
 - Associate request identifiers with the authenticated user.
-- Enforce uniqueness of the initiator and idempotency-key combination in the database.
-- Ensure repeated requests do not create duplicate ledger entries.
+- Enforce uniqueness of the initiator and idempotency-key combination in PostgreSQL.
+- Return the original transaction result for a repeated request with the same key.
+- Reject reuse of a key with different transaction details.
 
-**Implementation status:**
-Idempotency handling and a database uniqueness constraint are implemented. Automated transaction tests cover idempotency behavior and missing idempotency keys. Concurrent duplicate-request behavior against the database remains pending integration testing.
+**Implementation status:** Idempotency handling and the database uniqueness constraint are implemented. PostgreSQL integration tests verify that repeated requests do not create additional transactions or ledger entries and that reusing a key with different transaction details is rejected. Concurrent duplicate-request race behavior remains pending dedicated testing.
 
 ### Threat 6 - Concurrent Transactions
 
@@ -97,9 +100,9 @@ Idempotency handling and a database uniqueness constraint are implemented. Autom
 - Apply pessimistic database locking where required.
 - Lock transfer accounts in a consistent order.
 - Validate available balances before withdrawals and transfers.
-- Test simultaneous transaction scenarios against the database.
+- Test simultaneous transaction scenarios against PostgreSQL.
 
-**Implementation status:** Transaction boundaries and pessimistic account locking are implemented. Dedicated concurrent database integration tests are pending.
+**Implementation status:** Transaction boundaries and pessimistic locking are implemented. PostgreSQL integration tests execute simultaneous withdrawals and verify that only one withdrawal succeeds when the combined withdrawal amount exceeds the available balance. The final balance and ledger entries are verified.
 
 ### Threat 7 - Unauthorized Balance Modification
 
@@ -110,9 +113,9 @@ Idempotency handling and a database uniqueness constraint are implemented. Autom
 - Never accept a client-provided balance during account creation.
 - Perform balance changes only through authorized backend services.
 - Record financial changes through transaction and ledger operations.
-- Restrict direct modification of financial data.
+- Apply database constraints to prevent negative account balances.
 
-**Implementation status:** Server-controlled account creation and backend transaction processing are implemented. Further database-level safeguards require verification.
+**Implementation status:** Server-controlled account creation and backend transaction processing are implemented. PostgreSQL check constraints prevent negative account balances. Additional reconciliation and production database permission reviews remain pending.
 
 ### Threat 8 - Financial Record Tampering
 
@@ -123,14 +126,16 @@ Idempotency handling and a database uniqueness constraint are implemented. Autom
 - Design the ledger as an append-only financial record.
 - Avoid normal application operations that edit or delete completed ledger entries.
 - Record transaction details and outcomes.
+- Use database-level protections against ledger updates and deletions.
 - Reconcile account balances against ledger records.
-- Consider database-level controls to prevent unauthorized modification or deletion.
 
-**Implementation status:** Ledger entries are created through the transaction service, and entity fields use non-updatable mappings. Database-level immutability and automated ledger-to-balance reconciliation are pending verification. Application-level restrictions alone do not guarantee that database records cannot be altered.
+**Implementation status:** PostgreSQL database-level protections are implemented using a trigger that rejects UPDATE and DELETE operations on ledger entries. An integration test verifies that these operations are rejected and that the original ledger entry remains unchanged. Database check constraints also protect positive transaction amounts, positive ledger entry amounts, and nonnegative balances.
+
+A sufficiently privileged database owner can still modify or disable database protections. Independent reconciliation, database privilege hardening, and additional tamper-evidence mechanisms remain pending.
 
 ### Threat 9 - Privilege Escalation
 
-**Risk:** A normal account holder may attempt to access administrator or auditor functionality.
+**Risk:** A normal account holder may attempt to access administrator or auditor functionality, or assign themselves a privileged role.
 
 **Mitigations:**
 
@@ -138,8 +143,13 @@ Idempotency handling and a database uniqueness constraint are implemented. Autom
 - Enforce role-based authorization on protected endpoints.
 - Never accept a role directly from public registration requests.
 - Verify authorization independently of frontend visibility.
+- Keep ownership checks in addition to role checks.
 
-**Implementation status:** The current role model includes ACCOUNT_HOLDER. Separate ADMIN and AUDITOR permissions and their authorization tests are pending.
+**Implementation status:** All three roles are defined. Public registration always creates an ACCOUNT_HOLDER, and automated tests verify that privileged roles cannot be assigned through the registration API.
+
+The existing account and transaction APIs require the ACCOUNT_HOLDER role. API-level tests verify that ADMIN and AUDITOR tokens receive HTTP 403 when accessing these account-holder endpoints.
+
+Dedicated administrative management endpoints and read-only auditor reporting endpoints have not yet been implemented. Their permissions and audit workflows remain pending.
 
 ### Threat 10 - Sensitive Information Exposure
 
@@ -153,7 +163,7 @@ Idempotency handling and a database uniqueness constraint are implemented. Autom
 - Use environment variables for sensitive configuration.
 - Review API responses and application logs before deployment.
 
-**Implementation status:** Dedicated response DTOs and environment-based secret configuration are implemented. Logging and repository secret-exposure checks remain part of the deployment review.
+**Implementation status:** Dedicated response DTOs and environment-based configuration for database credentials and JWT secrets are implemented. Final logging review, repository secret scanning, and deployment configuration review remain pending.
 
 ## 4. Security Testing Plan
 
@@ -163,24 +173,36 @@ The following scenarios are included in the security verification plan:
 |---|---|
 | Unauthenticated requests to protected endpoints | Implemented and tested |
 | Account ownership restrictions | Implemented and tested |
-| Ledger access restrictions | Implemented and tested |
-| Invalid and expired JWTs | Further verification pending |
-| Duplicate registration attempts | Requires verification |
+| Cross-user ledger access restrictions | Implemented and tested |
+| Invalid JWT rejection | Implemented and tested |
+| Expired JWT rejection | Implemented and tested |
+| Public registration role restriction | Implemented and tested |
+| Duplicate registration attempts | Implemented and tested |
+| ACCOUNT_HOLDER API authorization | Implemented and tested |
+| ADMIN restrictions on account-holder APIs | Implemented and tested |
+| AUDITOR restrictions on account-holder APIs | Implemented and tested |
 | Invalid financial input validation | Implemented and tested |
 | Repeated financial requests | Implemented and tested |
 | Withdrawals exceeding available balances | Implemented and tested |
 | Inactive account restrictions | Implemented and tested |
 | Currency mismatch | Implemented and tested |
 | Maximum balance restrictions | Implemented and tested |
-| Concurrent financial operations against MySQL | Pending |
-| ADMIN and AUDITOR authorization | Pending |
-| Ledger and balance reconciliation | Pending |
+| Concurrent withdrawals against PostgreSQL | Implemented and tested |
+| Database-level ledger UPDATE/DELETE protection | Implemented and tested |
+| Concurrent duplicate idempotency requests | Pending |
+| Ledger-to-account-balance reconciliation | Pending |
+| Dedicated ADMIN management APIs | Pending |
+| Dedicated AUDITOR read-only APIs | Pending |
+| Production database privilege hardening | Pending |
+| Final logging and secret-exposure review | Pending |
 
-**Current automated test baseline (2026-11-07):**
+**Current automated test baseline (2026-11-08):**
 
-The complete Maven test suite contains 25 tests, with zero failures, zero errors, and zero skipped tests.
+The complete Maven test suite contains 37 tests, with zero failures, zero errors, and zero skipped tests.
 
-This test result represents the current automated test suite. It does not establish that every threat listed in this document has been fully mitigated.
+The tests include service-level tests, API-level security tests, and PostgreSQL integration tests.
+
+Passing tests demonstrate the behavior covered by those tests. They do not establish that every possible threat has been eliminated.
 
 ## 5. Security Principles
 
@@ -190,9 +212,11 @@ LedgerLine follows these security principles:
 - Defense in depth
 - Server-side validation
 - Ownership-based authorization
+- Role-based authorization
 - Secure password storage
 - Transaction integrity
 - Idempotent financial operations
+- Database-level integrity constraints
 - Append-only financial record design
 - Auditability
 - Explicit identification of pending security controls
@@ -205,12 +229,13 @@ A control is described as implemented and tested only when supported by the curr
 
 The following areas require further work:
 
-1. Concurrent transaction integration testing against MySQL.
-2. Dedicated invalid-token and expired-token tests.
-3. ADMIN and AUDITOR role-based authorization.
-4. Database-level ledger immutability safeguards.
-5. Ledger-to-account-balance reconciliation.
+1. Concurrent duplicate idempotency request testing.
+2. Ledger-to-account-balance reconciliation.
+3. Dedicated ADMIN management endpoints.
+4. Dedicated AUDITOR read-only reporting endpoints.
+5. Production database privilege hardening.
 6. Final secret-management, logging, and deployment review.
+7. Additional tamper-evidence and audit verification.
 
 Unimplemented or unverified controls remain pending until implementation and verification are complete.
 

@@ -166,11 +166,11 @@ Money movement required careful handling of account ownership, account status, a
 
 **What was done instead:**
 
-Implemented transaction-service checks for ownership, account status, sufficient funds, currency compatibility, and maximum balance. Added account locking and transaction/ledger persistence within database transactions. Verified transaction-service behavior through automated tests; database-level persistence and concurrency remain subject to further integration testing.
+Implemented transaction-service checks for ownership, account status, sufficient funds, currency compatibility, and maximum balance. Added account locking and transaction/ledger persistence within database transactions. Later PostgreSQL integration tests verified financial persistence and concurrent withdrawal behavior.
 
 **Commit reference:**
 
-Implementation and test milestone not yet committed as of 2026-11-07.
+`e37f752` - Implement secure financial transactions and ledger.
 
 ## Entry 8 - Transaction Security and Edge-Case Testing
 
@@ -182,7 +182,7 @@ How to test transaction failures and security edge cases in addition to successf
 
 **Tool output:**
 
-JUnit and Mockito test guidance for transaction-service behavior, account restrictions, and ledger access.
+JUnit and Mockito test guidance for transaction-service behavior, account restrictions, and ledger access restrictions.
 
 **What was wrong:**
 
@@ -190,12 +190,98 @@ Initial test execution exposed an unnecessary Mockito stubbing issue. The test s
 
 **What was done instead:**
 
-Corrected the test setup and added transaction tests covering inactive accounts, insufficient funds, invalid amounts, currency mismatch, maximum balance, idempotency-key validation, ownership restrictions, and ledger access restrictions. The latest complete Maven test run on 2026-11-07 reported 25 tests, zero failures, zero errors, and zero skipped tests.
+Corrected the test setup and added transaction tests covering inactive accounts, insufficient funds, invalid amounts, currency mismatch, maximum balance, idempotency-key validation, ownership restrictions, and ledger access restrictions. The complete Maven test suite at that stage reported 25 tests, zero failures, zero errors, and zero skipped tests.
 
 **Commit reference:**
 
-Test milestone not yet committed as of 2026-11-07.
+`e37f752` - Implement secure financial transactions and ledger.
+
+## Entry 9 - PostgreSQL Financial Integrity Integration Testing
+
+**Date:** 2026-11-08
+
+**What was asked:**
+
+How to verify financial integrity against a real PostgreSQL database instead of relying only on mocked service tests.
+
+**Tool output:**
+
+Guidance for PostgreSQL integration testing, concurrent transaction verification, idempotency testing, ledger immutability, money conservation, and cross-user access restrictions.
+
+**What was wrong:**
+
+Earlier service-level tests alone could not establish that database transactions, locking, constraints, and ledger protections behaved correctly against PostgreSQL. Integration test configuration also required debugging.
+
+**What was done instead:**
+
+Configured a separate PostgreSQL test database and added integration tests covering concurrent withdrawals, repeated idempotent requests, transfers, cross-user access restrictions, and database-level ledger immutability. Verified that the database rejects ledger UPDATE and DELETE operations through a trigger. The complete test suite subsequently passed with 30 tests and zero failures, errors, or skipped tests.
+
+**Commit reference:**
+
+`216e63f` - Add PostgreSQL financial integrity integration tests.
+
+## Entry 10 - JWT Validation and Registration Security
+
+**Date:** 2026-11-08
+
+**What was asked:**
+
+How to test invalid and expired JWT rejection and prevent public registration from assigning privileged roles or creating duplicate accounts.
+
+**Tool output:**
+
+MockMvc security test guidance for malformed JWTs, expired JWTs, registration role restrictions, and duplicate registration attempts.
+
+**What was wrong:**
+
+Security behavior needed to be verified through the actual JWT filter and registration API rather than relying only on unit-level tests. The JWT tests required a token signed with the configured test secret and an expiration time in the past.
+
+**What was done instead:**
+
+Added API-level tests using bearer tokens to verify that invalid and expired JWTs receive HTTP 401. Added registration tests verifying that public registration always creates an ACCOUNT_HOLDER and that duplicate email registration, including different email letter casing, receives HTTP 409. Both test classes passed independently.
+
+**Commit reference:**
+
+Not yet committed as of 2026-11-08.
+
+## Entry 11 - Role-Based API Authorization
+
+**Date:** 2026-11-08
+
+**What was asked:**
+
+How to enforce separate permissions for ACCOUNT_HOLDER, ADMIN, and AUDITOR roles on protected API endpoints.
+
+**Tool output:**
+
+Spring Security role-matcher configuration and API-level tests using real JWTs generated for database users with different roles.
+
+**What was wrong:**
+
+The initial tests showed that ADMIN and AUDITOR users could access account-holder APIs because the existing security configuration checked authentication but did not enforce role-specific authorization. The first test implementation also used an incorrect AutoConfigureMockMvc import for Spring Boot 4, which caused a compilation error.
+
+**What was done instead:**
+
+Corrected the Spring Boot 4 test import, added tests for all three roles, and used the initial failures to identify the authorization gap. Updated SecurityConfig to require the ACCOUNT_HOLDER role for existing account and transaction APIs. Verified that account holders receive HTTP 200 while ADMIN and AUDITOR receive HTTP 403 for the tested account API. The three role tests passed.
+
+Dedicated administrative management and auditor reporting endpoints remain future work.
+
+**Commit reference:**
+
+Not yet committed as of 2026-11-08.
 
 ---
 
-**Development note:** Test counts and commit references represent the state at the time each entry was recorded. Pending work and uncommitted milestones are identified explicitly rather than presented as completed or committed.
+## Development Note
+
+Test counts and commit references represent the state at the time each entry was recorded. Pending work and uncommitted milestones are identified explicitly rather than presented as completed or committed.
+
+**Latest verified automated test result (2026-11-08):**
+
+- Tests run: 37
+- Failures: 0
+- Errors: 0
+- Skipped: 0
+- Maven result: BUILD SUCCESS
+
+All AI-generated suggestions and code are subject to developer review, modification, and testing. Passing tests establish only the behavior covered by those tests; they do not guarantee the absence of all security vulnerabilities. The threat model must be reviewed and updated as the application evolves. A security control must not be considered complete solely because it is documented as a mitigation; its implementation and effectiveness must be verified.
