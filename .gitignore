@@ -21,6 +21,7 @@ application-secret.properties
 # Logs and compiled files
 *.log
 *.class
+startup-error.txt
 
 # Spring Tool Suite / Eclipse
 .apt_generated

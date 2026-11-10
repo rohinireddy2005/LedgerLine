@@ -1,6 +1,9 @@
 
 package com.ledgerline.ledgerline.config;
 
+import jakarta.servlet.DispatcherType;
+
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,7 +31,6 @@ public class SecurityConfig {
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             CustomUserDetailsService userDetailsService) {
-
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
     }
@@ -40,20 +42,27 @@ public class SecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-
         DaoAuthenticationProvider provider =
                 new DaoAuthenticationProvider(userDetailsService);
-
         provider.setPasswordEncoder(passwordEncoder());
-
         return provider;
     }
 
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration) throws Exception {
-
         return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter>
+            jwtAuthenticationFilterRegistration() {
+
+        FilterRegistrationBean<JwtAuthenticationFilter> registration =
+                new FilterRegistrationBean<>(jwtAuthenticationFilter);
+
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
@@ -64,7 +73,9 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
 
             .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                session.sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS
+                )
             )
 
             .authenticationProvider(authenticationProvider())
@@ -77,27 +88,30 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // Public registration and login
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/auth/register",
                     "/api/auth/login"
                 ).permitAll()
 
-                // Public health check
                 .requestMatchers(
                     HttpMethod.GET,
                     "/api/health"
                 ).permitAll()
 
-                // Existing account and transaction APIs:
-                // only account holders can access them.
+                .requestMatchers("/api/admin/**")
+                    .hasRole("ADMIN")
+
+                .requestMatchers("/api/auditor/**")
+                    .hasRole("AUDITOR")
+
                 .requestMatchers(
                     "/api/accounts/**",
                     "/api/transactions/**"
                 ).hasRole("ACCOUNT_HOLDER")
 
-                // Everything else requires authentication.
                 .anyRequest().authenticated()
             )
 

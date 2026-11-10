@@ -2,9 +2,15 @@
 package com.ledgerline.ledgerline.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -75,8 +81,7 @@ class MoneyTransactionIdempotencyPostgresIntegrationTest {
     }
 
     @Test
-    void retryingSameDepositShouldNotCreateDuplicateTransaction()
-            {
+    void retryingSameDepositShouldNotCreateDuplicateTransaction() {
 
         String idempotencyKey = "deposit-retry-test-001";
 
@@ -133,11 +138,7 @@ class MoneyTransactionIdempotencyPostgresIntegrationTest {
                 idempotencyKey
         );
 
-        assertEquals(
-                1,
-                transactionCount,
-                "Only one transaction should be stored"
-        );
+        assertEquals(1, transactionCount);
 
         Integer ledgerCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM ledger_entries "
@@ -146,11 +147,7 @@ class MoneyTransactionIdempotencyPostgresIntegrationTest {
                 accountId
         );
 
-        assertEquals(
-                1,
-                ledgerCount,
-                "Only one ledger entry should be created"
-        );
+        assertEquals(1, ledgerCount);
 
         DepositRequest differentRequest = new DepositRequest();
         differentRequest.setAccountId(accountId);
@@ -162,15 +159,10 @@ class MoneyTransactionIdempotencyPostgresIntegrationTest {
                         userId,
                         differentRequest,
                         idempotencyKey
-                ),
-                "Reusing the key with different request data must be rejected"
+                )
         );
 
-        assertEquals(
-                409,
-                exception.getStatusCode().value(),
-                "Different request with the same key should return HTTP 409"
-        );
+        assertEquals(409, exception.getStatusCode().value());
 
         Account finalAccount =
                 accountRepository.findById(accountId)
@@ -179,8 +171,7 @@ class MoneyTransactionIdempotencyPostgresIntegrationTest {
         assertEquals(
                 0,
                 new BigDecimal("125.00")
-                        .compareTo(finalAccount.getBalance()),
-                "Conflicting retry must not change the balance"
+                        .compareTo(finalAccount.getBalance())
         );
 
         Integer finalTransactionCount = jdbcTemplate.queryForObject(
@@ -191,10 +182,127 @@ class MoneyTransactionIdempotencyPostgresIntegrationTest {
                 idempotencyKey
         );
 
-        assertEquals(
-                1,
-                finalTransactionCount,
-                "Conflicting retry must not create another transaction"
-        );
+        assertEquals(1, finalTransactionCount);
+    }
+
+    @Test
+    void simultaneousSameDepositRequestsShouldCreateOnlyOneTransaction()
+            throws Exception {
+
+        String idempotencyKey = "concurrent-deposit-test-001";
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+
+            Future<MoneyTransactionResponse> firstFuture =
+                    executor.submit(() -> {
+
+                        DepositRequest request = new DepositRequest();
+                        request.setAccountId(accountId);
+                        request.setAmount(new BigDecimal("25.00"));
+
+                        ready.countDown();
+                        start.await();
+
+                        return moneyTransactionService.deposit(
+                                userId,
+                                request,
+                                idempotencyKey
+                        );
+                    });
+
+            Future<MoneyTransactionResponse> secondFuture =
+                    executor.submit(() -> {
+
+                        DepositRequest request = new DepositRequest();
+                        request.setAccountId(accountId);
+                        request.setAmount(new BigDecimal("25.00"));
+
+                        ready.countDown();
+                        start.await();
+
+                        return moneyTransactionService.deposit(
+                                userId,
+                                request,
+                                idempotencyKey
+                        );
+                    });
+
+            assertTrue(
+                    ready.await(5, TimeUnit.SECONDS),
+                    "Both requests should be ready before starting"
+            );
+
+            start.countDown();
+
+            MoneyTransactionResponse firstResult =
+                    firstFuture.get(20, TimeUnit.SECONDS);
+
+            MoneyTransactionResponse secondResult =
+                    secondFuture.get(20, TimeUnit.SECONDS);
+
+            assertEquals(
+                    firstResult.id(),
+                    secondResult.id(),
+                    "Both requests should return the same transaction ID"
+            );
+
+            assertEquals(
+                    TransactionStatus.SUCCESS,
+                    firstResult.status()
+            );
+
+            assertEquals(
+                    TransactionStatus.SUCCESS,
+                    secondResult.status()
+            );
+
+            Account updatedAccount =
+                    accountRepository.findById(accountId)
+                            .orElseThrow();
+
+            assertEquals(
+                    0,
+                    new BigDecimal("125.00")
+                            .compareTo(updatedAccount.getBalance()),
+                    "The concurrent deposit must update the balance only once"
+            );
+
+            Integer transactionCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM money_transactions "
+                    + "WHERE initiator_id = ? AND idempotency_key = ?",
+                    Integer.class,
+                    userId,
+                    idempotencyKey
+            );
+
+            assertEquals(
+                    1,
+                    transactionCount,
+                    "Only one transaction should be stored"
+            );
+
+            Integer ledgerCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM ledger_entries "
+                    + "WHERE account_id = ?",
+                    Integer.class,
+                    accountId
+            );
+
+            assertEquals(
+                    1,
+                    ledgerCount,
+                    "Only one ledger entry should be created"
+            );
+
+        } finally {
+
+            start.countDown();
+            executor.shutdownNow();
+        }
     }
 }

@@ -1,90 +1,151 @@
-# LedgerLine — Money Movement with a Ledger You Can Prove
+# LedgerLine - Money Movement with a Ledger You Can Prove
 
-LedgerLine is a money movement application built with Java, Spring Boot, Spring Security, JWT authentication, and PostgreSQL.
+LedgerLine is a secure money movement application developed for the Snovasys Fresher Hiring Challenge 2026.
 
-The project focuses on secure financial transactions, account ownership, transaction integrity, idempotency, and an auditable ledger.
+The backend uses Java, Spring Boot, Spring Security, JWT authentication, and PostgreSQL. It focuses on secure account management, financial transactions, transaction integrity, idempotency, role-based authorization, and an auditable financial ledger.
 
 ## Technology Stack
 
 - Java 21
-- Spring Boot
+- Spring Boot 4
 - Maven
 - Spring Security
-- JWT Authentication
+- JWT authentication
+- Spring Data JPA / Hibernate
 - PostgreSQL 18
-- JPA / Hibernate
 - JUnit and Mockito
+
+## Implemented Features
+
+### Authentication and Authorization
+
+- User registration and login.
+- BCrypt password hashing.
+- JWT-based stateless authentication.
+- Role-based access for ACCOUNT_HOLDER, ADMIN, and AUDITOR.
+- Registration assigns the ACCOUNT_HOLDER role.
+- Protected endpoints reject unauthenticated requests.
+- Privileged ADMIN and AUDITOR accounts are provisioned through environment configuration.
+
+### Account Management
+
+- Create and view accounts.
+- Server-generated account numbers.
+- Account ownership verification.
+- Account status management.
+- Admin operations to freeze, unfreeze, and close accounts.
+- Account status audit history.
+
+### Financial Transactions
+
+- Deposit, withdrawal, and transfer operations.
+- Positive amount and balance validation.
+- Insufficient balance protection.
+- Account ownership checks.
+- Currency compatibility checks for transfers.
+- Idempotency key validation and duplicate request handling.
+- Pessimistic locking for transaction-related account operations.
+- Ledger entries for successful money movements.
+
+### Ledger and Audit
+
+- Chronological account ledger.
+- Append-only ledger protections.
+- Database triggers preventing ordinary ledger and account status audit record modification.
+- Auditor-only transaction, account, and ledger reporting.
+- Admin account reconciliation reports.
+
+## Database Security and Integrity
+
+LedgerLine uses PostgreSQL constraints and restricted database permissions to strengthen financial data integrity.
+
+Implemented protections include:
+
+- Nonnegative account balance constraints.
+- Positive transaction and ledger entry amount constraints.
+- Foreign-key relationships.
+- Unique idempotency keys per initiating user.
+- Pessimistic locking for critical transaction operations.
+- Database triggers preventing updates and deletions of ledger entries and account status audit records.
+- A separate NOLOGIN database owner role.
+- A restricted runtime application database role.
+- Production Hibernate schema validation using `ddl-auto=validate`.
+
+The runtime application role does not own the production database tables. It has restricted table permissions and does not have DELETE or TRUNCATE permissions.
+
+The runtime role has table-level UPDATE permission on accounts. Therefore, database permissions do not independently prevent every direct account balance or status update. Application authorization and transaction controls remain important.
+
+Privileged database administrators can still bypass ordinary database protections. Independent backups and audit controls remain important.
 
 ## Prerequisites
 
-Install the following before running the backend:
+Install:
 
 - JDK 21
-- Apache Maven 3.9+
+- Apache Maven 3.9 or later
 - PostgreSQL 18
 - Git
 
-Verify the installations:
+Verify Java and Maven:
 
-```bash
+```cmd
 java -version
 mvn -version
 ```
 
+## Environment Configuration
+
+The application requires these environment variables:
+
+- `DB_PASSWORD` - PostgreSQL runtime application user's password.
+- `JWT_SECRET` - Base64-encoded secret suitable for the application's JWT configuration.
+
+Privileged account provisioning uses the following optional environment variables:
+
+- `ADMIN_FULL_NAME`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `AUDITOR_FULL_NAME`
+- `AUDITOR_EMAIL`
+- `AUDITOR_PASSWORD`
+
+Configure all six privileged-account variables together when provisioning these accounts. Do not commit passwords, tokens, or secret values to Git.
+
 ## Database Setup
 
-### 1. Create the PostgreSQL database and application user
+The production database must be provisioned by a database administrator before starting the application.
 
-Connect to PostgreSQL as an administrator and execute:
+The production database uses:
 
-```sql
-CREATE USER ledgerline_app WITH LOGIN PASSWORD 'YOUR_PRIVATE_PASSWORD';
+- Database: `ledgerline_db`
+- Runtime user: `ledgerline_app`
+- Database owner role: `ledgerline_owner` (NOLOGIN)
 
-CREATE DATABASE ledgerline_db OWNER ledgerline_app;
+The required tables, sequences, constraints, trigger functions, triggers, and runtime permissions must already exist.
+
+The production application uses:
+
+```properties
+spring.jpa.hibernate.ddl-auto=validate
 ```
 
-If the user or database already exists, do not create it again.
+The runtime application user is not intended to perform production schema changes.
 
-### 2. Configure environment variables
+The SQL setup script is located at:
 
-Configure these Windows environment variables:
-
-- `DB_PASSWORD` — password of the PostgreSQL application user.
-- `JWT_SECRET` — a securely generated Base64-encoded secret suitable for your JWT configuration.
-
-Do not commit passwords, tokens, or secret values to Git.
-
-After setting environment variables, open a new terminal.
-
-### 3. Start the backend once
-
-From the project root:
-
-```bash
-mvn spring-boot:run
+```text
+src/main/resources/db/setup/financial_integrity.sql
 ```
 
-Hibernate is configured with `ddl-auto=update` to create or update the application tables.
+The SQL setup script must be reviewed and executed by a database administrator during initial database provisioning. It is not automatically executed by the application.
 
-Stop the application after the tables have been created.
-
-### 4. Apply database integrity protections
-
-Run the SQL setup script from the project root:
-
-```bash
-"C:\Program Files\PostgreSQL\18\bin\psql.exe" -U ledgerline_app -h localhost -p 5432 -d ledgerline_db -f "src/main/resources/db/setup/financial_integrity.sql"
-```
-
-The script installs database constraints for positive transaction amounts and nonnegative balances, along with a trigger that prevents ordinary updates and deletions of ledger entries.
-
-This script is executed manually; it is not automatically run by Spring Boot.
+Database setup and schema changes should be performed using an appropriately privileged database administration or migration account, not the runtime application account.
 
 ## Run the Backend
 
 From the project root:
 
-```bash
+```cmd
 mvn spring-boot:run
 ```
 
@@ -94,54 +155,83 @@ The backend runs at:
 http://localhost:8080
 ```
 
+Health endpoint:
+
+```text
+GET /api/health
+```
+
+## API Areas
+
+| Area | Endpoint examples | Access |
+|---|---|---|
+| Authentication | `/api/auth/register`, `/api/auth/login` | Public |
+| Health | `/api/health` | Public |
+| Accounts | `/api/accounts` | ACCOUNT_HOLDER |
+| Transactions | `/api/transactions` | ACCOUNT_HOLDER |
+| Administration | `/api/admin/**` | ADMIN |
+| Audit reporting | `/api/auditor/**` | AUDITOR |
+
+Protected endpoints require a valid JWT bearer token.
+
 ## Run Tests
 
-Execute:
+The test profile uses a separate PostgreSQL test database:
 
-```bash
+```text
+ledgerline_test_db
+```
+
+The test database must be created separately before running the test suite. The test profile uses `ddl-auto=create-drop`, which recreates its schema during test execution. Use only a dedicated test database because its schema is recreated during tests.
+
+Configure the required `DB_PASSWORD` environment variable, ensure the test database exists, and run:
+
+```cmd
 mvn clean test
 ```
 
-The automated test suite currently includes unit tests for account services, transaction services, and security edge cases.
+Latest verified regression test result:
 
-Database-level concurrency and integration behavior still requires dedicated verification.
+- Tests run: 81
+- Failures: 0
+- Errors: 0
+- Skipped: 0
+- Build: SUCCESS
+- Verification date: November 9, 2026
 
-## Database Integrity
-
-LedgerLine uses:
-
-- Positive transaction amount constraints.
-- Nonnegative account balance constraints.
-- Nonnegative ledger balance constraints.
-- Unique idempotency keys per initiating user.
-- Foreign-key relationships between users, accounts, transactions, and ledger entries.
-- A database trigger preventing ordinary ledger-entry updates and deletions.
-- Transactional service operations for money movement.
-
-Privileged database owners may still bypass database protections. The trigger is not a substitute for restricted database administration and independent audit controls.
+Test results describe the verified test run and do not guarantee that every deployment or production scenario has been tested.
 
 ## Project Documentation
 
-- `THREATS.md` — security threat model, mitigations, and remaining risks.
-- `PROMPTS.md` — AI usage documentation and implementation decisions.
-- `src/main/resources/db/setup/financial_integrity.sql` — database integrity setup script.
+- `THREATS.md` - Security threat model, implemented mitigations, and remaining risks.
+- `PROMPTS.md` - AI usage documentation and implementation decisions.
+- `src/main/resources/db/setup/financial_integrity.sql` - Database integrity setup script.
 
 ## Current Development Status
 
-This project is under active development for the Snovasys Fresher Hiring Challenge 2026.
+The backend includes authentication, account management, financial transactions, ledger protections, administrative operations, auditor reporting, and account reconciliation.
 
-Some requirements, including database concurrency integration tests, complete role-based authorization, frontend integration, and deployment verification, require further implementation and testing.
+Further work remains, including:
 
-Do not assume unfinished features are production-ready.
+- Frontend integration.
+- Deployment and end-to-end verification.
+- Larger concurrency stress testing.
+- Independent audit backup and tamper-evidence procedures.
+- Additional production logging and secrets review.
+- Further database permission hardening, including column-level account permissions.
+
+Do not assume that unfinished features or unverified deployment scenarios are production-ready.
 
 ## Security Notes
 
-- Never commit environment variables or credentials.
-- Use secure password hashing.
+- Never commit credentials, JWT tokens, or secret values.
+- Use environment variables for sensitive configuration.
+- Keep the runtime database role separate from the database owner.
 - Enforce authorization on the server.
-- Preserve the integrity and auditability of financial records.
+- Preserve ledger and audit record integrity.
 - Verify transaction behavior under concurrent requests.
+- Maintain independent database backups.
 
-## License
+## Project Context
 
 This project is developed as part of the Snovasys Fresher Hiring Challenge 2026.

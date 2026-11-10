@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -113,6 +114,10 @@ class RoleAuthorizationSecurityTest {
         }
     }
 
+    // --------------------------------------------------
+    // ACCOUNT HOLDER AUTHORIZATION
+    // --------------------------------------------------
+
     @Test
     void accountHolderShouldAccessAccountHolderApi() throws Exception {
 
@@ -147,5 +152,188 @@ class RoleAuthorizationSecurityTest {
                                 "Bearer " + auditorToken
                         )
         ).andExpect(status().isForbidden());
+    }
+
+    // --------------------------------------------------
+    // AUDITOR AUTHORIZATION
+    // --------------------------------------------------
+
+    @Test
+    void auditorShouldAccessTransactionAuditApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/transactions")
+                        .header(
+                                "Authorization",
+                                "Bearer " + auditorToken
+                        )
+        ).andExpect(status().isOk());
+    }
+
+    @Test
+    void auditorShouldAccessAccountAuditApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/accounts")
+                        .header(
+                                "Authorization",
+                                "Bearer " + auditorToken
+                        )
+        ).andExpect(status().isOk());
+    }
+
+    @Test
+    void auditorShouldReachLedgerAuditService() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/ledger/999999999")
+                        .header(
+                                "Authorization",
+                                "Bearer " + auditorToken
+                        )
+        ).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void adminShouldNotAccessAuditorApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/transactions")
+                        .header(
+                                "Authorization",
+                                "Bearer " + adminToken
+                        )
+        ).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void accountHolderShouldNotAccessAuditorApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/transactions")
+                        .header(
+                                "Authorization",
+                                "Bearer " + accountHolderToken
+                        )
+        ).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unauthenticatedUserShouldNotAccessAuditorApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/transactions")
+        ).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void negativePageNumberShouldReturnBadRequest() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/transactions")
+                        .param("page", "-1")
+                        .header(
+                                "Authorization",
+                                "Bearer " + auditorToken
+                        )
+        ).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void zeroPageSizeShouldReturnBadRequest() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/accounts")
+                        .param("size", "0")
+                        .header(
+                                "Authorization",
+                                "Bearer " + auditorToken
+                        )
+        ).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void pageSizeAboveMaximumShouldReturnBadRequest() throws Exception {
+
+        mockMvc.perform(
+                get("/api/auditor/transactions")
+                        .param("size", "101")
+                        .header(
+                                "Authorization",
+                                "Bearer " + auditorToken
+                        )
+        ).andExpect(status().isBadRequest());
+    }
+
+    // --------------------------------------------------
+    // ADMIN AUTHORIZATION
+    // --------------------------------------------------
+
+    @Test
+    void adminShouldAccessUserManagementApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/admin/users")
+                        .header(
+                                "Authorization",
+                                "Bearer " + adminToken
+                        )
+        ).andExpect(status().isOk());
+    }
+
+    @Test
+    void adminShouldAccessAccountManagementApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/admin/accounts")
+                        .header(
+                                "Authorization",
+                                "Bearer " + adminToken
+                        )
+        ).andExpect(status().isOk());
+    }
+
+    @Test
+    void adminShouldAccessAdministrativeAuditApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/admin/audits")
+                        .header(
+                                "Authorization",
+                                "Bearer " + adminToken
+                        )
+        ).andExpect(status().isOk());
+    }
+
+    @Test
+    void accountHolderShouldNotAccessAdminApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/admin/users")
+                        .header(
+                                "Authorization",
+                                "Bearer " + accountHolderToken
+                        )
+        ).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void auditorShouldNotAccessAdminApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/admin/users")
+                        .header(
+                                "Authorization",
+                                "Bearer " + auditorToken
+                        )
+        ).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unauthenticatedUserShouldNotAccessAdminApi() throws Exception {
+
+        mockMvc.perform(
+                get("/api/admin/users")
+        ).andExpect(status().isUnauthorized());
     }
 }

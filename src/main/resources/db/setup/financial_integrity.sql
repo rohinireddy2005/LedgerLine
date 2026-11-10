@@ -1,3 +1,4 @@
+
 -- LedgerLine: Financial Database Integrity Protections
 -- PostgreSQL database
 -- Execute after Hibernate creates the database tables.
@@ -76,3 +77,22 @@ BEFORE UPDATE OR DELETE
 ON ledger_entries
 FOR EACH ROW
 EXECUTE FUNCTION prevent_ledger_modification();
+
+-- 7. Create function to prevent account-status audit modification.
+CREATE OR REPLACE FUNCTION prevent_account_status_audit_modification()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION
+        'Account status audit records are immutable. UPDATE and DELETE are not allowed.';
+END;
+$$ LANGUAGE plpgsql;
+
+-- 8. Create append-only account-status audit trigger.
+DROP TRIGGER IF EXISTS trg_prevent_account_status_audit_modification
+ON account_status_audits;
+
+CREATE TRIGGER trg_prevent_account_status_audit_modification
+BEFORE UPDATE OR DELETE
+ON account_status_audits
+FOR EACH ROW
+EXECUTE FUNCTION prevent_account_status_audit_modification();

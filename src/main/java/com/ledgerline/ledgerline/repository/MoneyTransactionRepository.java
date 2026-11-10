@@ -1,9 +1,10 @@
-
 package com.ledgerline.ledgerline.repository;
 
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -22,5 +23,9 @@ public interface MoneyTransactionRepository
     findBySourceAccountIdOrDestinationAccountIdOrderByCreatedAtDesc(
             Long sourceAccountId,
             Long destinationAccountId
+    );
+
+    Page<MoneyTransaction> findAllByOrderByCreatedAtDescIdDesc(
+            Pageable pageable
     );
 }

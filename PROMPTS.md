@@ -242,7 +242,7 @@ Added API-level tests using bearer tokens to verify that invalid and expired JWT
 
 **Commit reference:**
 
-b558b66 - Enforce role-based API authorization and expand security tests.
+`b558b66` - Enforce role-based API authorization and expand security tests.
 
 ## Entry 11 - Role-Based API Authorization
 
@@ -262,13 +262,304 @@ The initial tests showed that ADMIN and AUDITOR users could access account-holde
 
 **What was done instead:**
 
-Corrected the Spring Boot 4 test import, added tests for all three roles, and used the initial failures to identify the authorization gap. Updated SecurityConfig to require the ACCOUNT_HOLDER role for existing account and transaction APIs. Verified that account holders receive HTTP 200 while ADMIN and AUDITOR receive HTTP 403 for the tested account API. The three role tests passed.
+Corrected the Spring Boot 4 test import, added tests for all three roles, and used the initial failures to identify the authorization gap. Updated SecurityConfig to require the ACCOUNT_HOLDER role for existing account and transaction APIs. Verified that account holders receive HTTP 200 while ADMIN and AUDITOR receive HTTP 403 for the tested account API.
 
-Dedicated administrative management and auditor reporting endpoints remain future work.
+Dedicated administrative management and auditor reporting endpoints were initially future work. Auditor reporting was subsequently implemented and tested in Entry 12.
 
 **Commit reference:**
 
-b558b66 - Enforce role-based API authorization and expand security tests.
+`b558b66` - Enforce role-based API authorization and expand security tests.
+
+## Entry 12 - Auditor Reporting and API Integration Testing
+
+**Date:** 2026-11-08
+
+**What was asked:**
+
+How to implement read-only auditor reporting endpoints and verify that auditors can inspect transaction history, account information, and account ledger records without receiving access to account-holder or administrative functionality.
+
+**Tool output:**
+
+Guidance for auditor service methods, paginated report endpoints, dedicated audit response DTOs, role-based API security, and service/API integration tests.
+
+**What was wrong:**
+
+The initial role-based security implementation restricted auditor access to account-holder APIs, but dedicated auditor reporting endpoints were not yet available. Report data also needed to be checked against actual PostgreSQL transaction and ledger records rather than relying only on mocked service tests.
+
+**What was done instead:**
+
+Implemented read-only auditor endpoints for:
+
+- Transaction history: `GET /api/auditor/transactions`
+- Account reports: `GET /api/auditor/accounts`
+- Account ledger reports: `GET /api/auditor/ledger/{accountId}`
+
+Added dedicated audit response DTOs that avoid exposing password hashes and idempotency keys. Implemented pagination validation, including invalid page and page-size rejection.
+
+Added service tests for transaction, account, and ledger report mapping and missing-account handling. Added API security tests covering auditor access, restrictions for ADMIN and ACCOUNT_HOLDER roles, unauthenticated access, and pagination validation.
+
+Added PostgreSQL-backed API integration tests verifying that:
+
+- Successful and rejected transactions appear in auditor transaction history.
+- Only successful financial movements appear in the ledger.
+- Ledger entries contain the expected running balances.
+- Account reports show the correct owner and final balance.
+
+The three auditor API integration tests passed. The complete Maven test suite subsequently passed with 53 tests, zero failures, zero errors, and zero skipped tests.
+
+Dedicated administrative management endpoints were implemented in a later milestone. Concurrent duplicate idempotency request testing, financial reconciliation, and further production security reviews were also completed in later milestones.
+
+**Commit reference:**
+
+No commit reference assigned. This milestone was documented as implemented and locally tested; it must not be represented as committed without an actual Git commit.
+
+## Entry 13 - Secure ADMIN and AUDITOR Account Initialization
+
+**Date:** 2026-11-08
+
+**What was asked:**
+
+How to initialize privileged ADMIN and AUDITOR accounts securely without allowing public registration to assign privileged roles.
+
+**Tool output:**
+
+Guidance for environment-based configuration, BCrypt password encoding, role validation, safe initialization, and automated tests.
+
+**What was wrong:**
+
+The first initializer implementation used `List.of()` with potentially null environment values. This caused application context failures when privileged account configuration was absent. The initial test implementation also had a Mockito stubbing-order issue.
+
+**What was done instead:**
+
+Implemented `RoleAccountInitializer` using six environment variables for ADMIN and AUDITOR account configuration. Initialization safely skips when all six settings are absent and rejects incomplete configuration. It validates configured values, normalizes email addresses, encodes passwords using BCrypt, avoids modifying existing accounts with the correct roles, and rejects conflicting existing roles.
+
+Added five automated tests covering missing configuration, partial configuration, successful account creation, existing accounts, and conflicting roles. Corrected the test stubbing order after the initial test failure.
+
+The focused initializer tests passed with five tests and zero failures. The complete Maven test suite subsequently passed with 71 tests, zero failures, zero errors, and zero skipped tests.
+
+This milestone was locally implemented and tested. It was not assigned a separate commit reference.
+
+**Commit reference:**
+
+No commit reference assigned.
+
+## Entry 14 - Admin Account Reconciliation and Ledger Integrity Verification
+
+**Date:** 2026-11-08
+
+**What was asked:**
+
+How to implement an administrative account reconciliation feature that verifies whether account balances match their ledger entries and identifies inconsistencies without modifying financial records.
+
+**Tool output:**
+
+Guidance for reconciliation response DTOs, admin service logic, protected API endpoints, ledger running-balance verification, and PostgreSQL-backed integration tests.
+
+**What was wrong:**
+
+Existing transaction and ledger tests verified individual financial operations, but there was no dedicated administrative feature to compare an account's current balance against its complete ledger history. Additional tests were needed to verify that reconciliation detects incorrect running balances and ledger entries associated with rejected transactions.
+
+**What was done instead:**
+
+Implemented an administrative reconciliation endpoint:
+
+`GET /api/admin/accounts/{accountId}/reconciliation`
+
+Added `AccountReconciliationResponse` to report the account ID, account number, current account balance, calculated ledger balance, number of entries checked, reconciliation status, and explanatory message.
+
+Implemented reconciliation logic to:
+
+- Calculate the account balance from ledger entries in chronological order.
+- Verify each ledger entry's recorded running balance.
+- Detect ledger entries associated with non-successful transactions.
+- Compare the calculated ledger balance with the account's stored balance.
+- Report inconsistencies without modifying account balances or ledger records.
+
+Added PostgreSQL-backed integration tests covering successful reconciliation, incorrect ledger running balances, and ledger entries associated with rejected transactions.
+
+The focused `AdminApiIntegrationTest` passed with 13 tests, zero failures, zero errors, and zero skipped tests.
+
+The subsequent clean full-suite execution using `mvn clean test` passed with 79 tests, zero failures, zero errors, and zero skipped tests.
+
+This milestone was implemented and locally tested. It was not assigned a separate commit reference.
+
+**Commit reference:**
+
+No commit reference assigned.
+
+## Entry 15 - Production PostgreSQL Privilege Hardening
+
+**Date:** 2026-11-09
+
+**What was asked:**
+
+How to reduce the permissions of the production database runtime user so that the application does not run with database-object ownership or unnecessary schema modification privileges.
+
+**Tool output:**
+
+Guidance for separating database ownership from runtime access, creating a restricted application role, transferring database object ownership, reviewing grants, and using schema validation instead of automatic production schema updates.
+
+**What was wrong:**
+
+The production runtime application role had broader database privileges than necessary. Production Hibernate configuration also used schema update behavior, and the financial integrity initializer attempted database DDL operations during application startup. Those operations were incompatible with a restricted runtime role.
+
+**What was done instead:**
+
+Created a separate PostgreSQL role named `ledgerline_owner` and configured it as a NOLOGIN role without elevated role attributes.
+
+Transferred ownership of the production database, five application tables, five application sequences, and the ledger and account status audit trigger functions to `ledgerline_owner`.
+
+Changed production Hibernate configuration from `ddl-auto=update` to `ddl-auto=validate`.
+
+Restricted the `ledgerline_app` runtime role to the required database access:
+
+- CONNECT on the production database.
+- USAGE on the `public` schema.
+- SELECT and INSERT on `users`.
+- SELECT, INSERT, and UPDATE on `accounts`.
+- SELECT and INSERT on `money_transactions`.
+- SELECT and INSERT on `ledger_entries`.
+- SELECT and INSERT on `account_status_audits`.
+- USAGE on the application sequences.
+
+Verified that the runtime role does not own the database objects, cannot create schema objects, and does not have DELETE or TRUNCATE permissions on application tables. It also does not have UPDATE permission on append-only ledger and account status audit tables.
+
+The `accounts` table retains table-level UPDATE permission because application account operations require updates. Column-level restrictions remain a possible future hardening improvement.
+
+The production `FinancialIntegrityInitializer` was restricted to the test profile using `@Profile("test")`. This prevents the production runtime application role from attempting to create or replace database constraints, functions, and triggers. The required integrity protections were already present in the production database and were verified.
+
+The production database privilege review and ownership checks were completed.
+
+**Commit reference:**
+
+No commit reference assigned. This milestone was implemented and verified locally and must not be described as committed until an actual Git commit is created.
+
+## Entry 16 - PostgreSQL Backup Restoration and Production API Verification
+
+**Date:** 2026-11-09
+
+**What was asked:**
+
+How to verify that the PostgreSQL backup can be restored and that the production application still starts and performs basic API operations after database privilege hardening.
+
+**Tool output:**
+
+Guidance for inspecting a PostgreSQL backup archive, restoring it into a separate verification database, checking restored database objects, and testing production application startup and API responses.
+
+**What was wrong:**
+
+A backup file alone does not establish that restoration works. Production privilege changes also needed to be checked against actual application startup and API behavior using the restricted runtime database role.
+
+**What was done instead:**
+
+Inspected the PostgreSQL custom-format backup archive and verified its table, sequence, data, constraint, foreign-key, trigger-function, and trigger entries.
+
+Restored the backup into a separate database named `ledgerline_backup_verify`.
+
+Checked the restored application tables and data. Verified that both the ledger modification trigger and account status audit modification trigger were enabled in the restored database.
+
+Started the production application using the restricted `ledgerline_app` database role. Verified that Hibernate schema validation completed and that the application started successfully.
+
+Performed the following API checks:
+
+- `GET /api/health` returned HTTP 200.
+- An unauthenticated request to `GET /api/accounts` returned HTTP 401.
+- Test-user registration returned HTTP 201.
+- Test-user login returned HTTP 200.
+- An authenticated request to `GET /api/accounts` returned HTTP 200.
+
+These checks establish the behavior of the tested startup and API operations. They do not establish that every endpoint or deployment scenario has been verified.
+
+**Commit reference:**
+
+No commit reference assigned.
+
+## Entry 17 - Full Regression Testing After Production Database Hardening
+
+**Date:** 2026-11-09
+
+**What was asked:**
+
+How to verify that the complete automated test suite still passes after changing production database privileges and restricting the financial integrity initializer to the test profile.
+
+**Tool output:**
+
+Guidance for running a clean Maven test execution and checking the final test summary.
+
+**What was wrong:**
+
+The production database configuration and initializer profile had changed. The complete test suite needed to be rerun to check that the changes did not break existing transaction, security, auditor, administrator, or reconciliation behavior.
+
+**What was done instead:**
+
+Ran:
+
+`mvn clean test`
+
+The complete test suite passed with:
+
+- Tests run: 79
+- Failures: 0
+- Errors: 0
+- Skipped: 0
+- Maven result: BUILD SUCCESS
+- Total execution time: 58.569 seconds
+
+The test execution completed on November 9, 2026, after production database privilege hardening and the `FinancialIntegrityInitializer` profile change.
+
+The suite included service-level tests, API-level security tests, PostgreSQL integration tests, role authorization tests, registration security tests, auditor reporting tests, privileged account initialization tests, and administrative reconciliation tests.
+
+**Commit reference:**
+
+No commit reference assigned.
+
+## Entry 18 - Additional Authorization, Idempotency, and Regression Verification
+
+**Date:** 2026-11-09
+
+**What was asked:**
+
+How to strengthen the final backend verification by reviewing role-based access restrictions, PostgreSQL transaction idempotency behavior, repository locking, and the financial integrity configuration.
+
+**Tool output:**
+
+Guidance for reviewing security configuration, repository queries, PostgreSQL integrity setup, and automated tests covering authorization and repeated transaction requests.
+
+**What was wrong:**
+
+The latest implementation changes affected multiple security and persistence components. The authorization rules and PostgreSQL idempotency behavior needed additional verification, followed by a complete clean regression run.
+
+**What was done instead:**
+
+Reviewed and updated the relevant security configuration and repository queries used by account, ledger, and money transaction operations.
+
+Updated role authorization tests to cover additional access-control cases. Expanded PostgreSQL-backed idempotency integration testing to verify repeated requests against the database.
+
+Reviewed the financial integrity SQL setup and its use under the test profile. Kept production schema validation separate from test-only database initialization.
+
+Ran the focused security test group:
+
+`mvn -Dtest=JwtAuthenticationSecurityTest,RoleAuthorizationSecurityTest,SecurityConfigTest,RegistrationSecurityTest,MoneyTransactionSecurityEdgeCaseTest test`
+
+The focused security tests passed with 30 tests, zero failures, zero errors, and zero skipped tests.
+
+Ran the PostgreSQL-focused integration tests:
+
+`mvn -Dtest=AccountStatusAuditImmutabilityPostgresIntegrationTest,CrossUserAccessPostgresIntegrationTest,LedgerImmutabilityPostgresIntegrationTest,MoneyTransactionIdempotencyPostgresIntegrationTest,MoneyTransactionPostgresIntegrationTest,MoneyTransferPostgresIntegrationTest test`
+
+The PostgreSQL-focused integration tests passed with seven tests, zero failures, zero errors, and zero skipped tests. The test output confirmed that the tests used the dedicated `ledgerline_test_db` database and the `test` profile.
+
+Finally, ran the complete regression suite:
+
+`mvn clean test`
+
+The complete test suite passed with 81 tests, zero failures, zero errors, and zero skipped tests.
+
+This milestone was verified locally. It must not be represented as committed until an actual Git commit is created.
+
+**Commit reference:**
+
+No commit reference assigned.
 
 ---
 
@@ -276,12 +567,20 @@ b558b66 - Enforce role-based API authorization and expand security tests.
 
 Test counts and commit references represent the state at the time each entry was recorded. Pending work and uncommitted milestones are identified explicitly rather than presented as completed or committed.
 
-**Latest verified automated test result (2026-11-08):**
+## Latest Verified Automated Test Result (2026-11-09)
 
-- Tests run: 37
+- Tests run: 81
 - Failures: 0
 - Errors: 0
 - Skipped: 0
 - Maven result: BUILD SUCCESS
+- Command: `mvn clean test`
+- Total execution time: 58.033 seconds
 
-All AI-generated suggestions and code are subject to developer review, modification, and testing. Passing tests establish only the behavior covered by those tests; they do not guarantee the absence of all security vulnerabilities. The threat model must be reviewed and updated as the application evolves. A security control must not be considered complete solely because it is documented as a mitigation; its implementation and effectiveness must be verified.
+The result was obtained after production database privilege hardening and the additional authorization, repository, and PostgreSQL idempotency verification work.
+
+The complete suite includes service-level tests, API-level security tests, PostgreSQL integration tests, role authorization tests, registration security tests, auditor reporting tests, privileged account initialization tests, and administrative reconciliation tests.
+
+All AI-generated suggestions and code are subject to developer review, modification, and testing. Passing tests establish only the behavior covered by those tests; they do not guarantee the absence of all security vulnerabilities.
+
+The threat model and AI development prompt log must be reviewed and updated as the application evolves. A security control must not be considered complete solely because it is documented as a mitigation; its implementation and effectiveness must be verified.
