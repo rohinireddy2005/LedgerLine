@@ -7,6 +7,7 @@ The application includes a React frontend and a Java Spring Boot backend. It foc
 ## Technology Stack
 
 ### Backend
+
 - Java 21
 - Spring Boot 4
 - Maven
@@ -16,12 +17,14 @@ The application includes a React frontend and a Java Spring Boot backend. It foc
 - PostgreSQL 18
 
 ### Frontend
+
 - React
 - Vite
 - JavaScript
 - HTML and CSS
 
 ### Testing
+
 - JUnit
 - Mockito
 - PostgreSQL-backed integration tests
@@ -203,7 +206,7 @@ GET /api/health
 Open a separate Command Prompt window:
 
 ```cmd
-cd /d C:\LedgerLine\frontend
+cd /d C:\LedgerLine\backend\ledgerline\frontend
 ```
 
 Install the frontend dependencies:
@@ -239,6 +242,12 @@ npm run build
 The production build is generated in the `dist` directory.
 
 A successful local build has been verified.
+
+Additional frontend verification:
+
+- ESLint: Passed.
+- `npm audit`: 0 vulnerabilities.
+- Production build: Passed.
 
 ## API Areas
 
