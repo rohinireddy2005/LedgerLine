@@ -5,6 +5,7 @@ import java.util.List;
 
 import jakarta.servlet.DispatcherType;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +34,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
+
+    @Value("${app.cors.allowed-origin:http://localhost:5173}")
+    private String allowedOrigin;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
@@ -83,7 +87,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(
-                List.of("http://localhost:5173")
+                List.of(allowedOrigin)
         );
 
         configuration.setAllowedMethods(
@@ -135,24 +139,31 @@ public class SecurityConfig {
                 )
             )
             .authorizeHttpRequests(auth -> auth
+
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/auth/register",
                     "/api/auth/login"
                 ).permitAll()
+
                 .requestMatchers(
                     HttpMethod.GET,
                     "/api/health"
                 ).permitAll()
+
                 .requestMatchers("/api/admin/**")
                     .hasRole("ADMIN")
+
                 .requestMatchers("/api/auditor/**")
                     .hasRole("AUDITOR")
+
                 .requestMatchers(
                     "/api/accounts/**",
                     "/api/transactions/**"
                 ).hasRole("ACCOUNT_HOLDER")
+
                 .anyRequest().authenticated()
             )
             .addFilterBefore(
