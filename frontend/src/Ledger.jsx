@@ -82,7 +82,6 @@ function Ledger() {
 
   useEffect(() => {
     if (!selectedAccountId) {
-      setEntries([])
       return
     }
 

@@ -144,7 +144,7 @@ function MoneyAction({ action, accounts, onClose, onSuccess }) {
       if (onSuccess) {
         onSuccess()
       }
-    } catch (error) {
+    } catch {
       setMessage(
         'Could not connect to the backend. Check that the backend is running and CORS is configured.'
       )

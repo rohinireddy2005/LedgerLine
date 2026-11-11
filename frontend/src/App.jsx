@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import './App.css'
 
@@ -136,7 +136,6 @@ function App() {
         return
       }
 
-      // Load the real ledger for every account.
       const ledgerResults = await Promise.all(
         data.map(async (account) => {
           const ledgerResponse = await fetch(
@@ -178,12 +177,6 @@ function App() {
       setIsLoadingAccounts(false)
     }
   }, [])
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchMyAccounts()
-    }
-  }, [isLoggedIn, fetchMyAccounts])
 
   async function handleCreateAccount(event) {
     event.preventDefault()
@@ -256,6 +249,11 @@ function App() {
     setShowAccountForm(false)
   }
 
+  function handleLogin() {
+    setIsLoggedIn(true)
+    fetchMyAccounts()
+  }
+
   const totalBalance = accounts.reduce(
     (total, account) => total + Number(account.balance || 0),
     0
@@ -284,9 +282,6 @@ function App() {
         return
       }
 
-      // Transfers between two of the user's own accounts
-      // have both a debit and a credit entry. Exclude them
-      // from income and expenses to avoid double-counting.
       if (transaction.type === 'Transfer') {
         return
       }
@@ -304,7 +299,7 @@ function App() {
   const recentTransactions = overviewTransactions.slice(0, 5)
 
   if (!isLoggedIn) {
-    return <Auth onLogin={() => setIsLoggedIn(true)} />
+    return <Auth onLogin={handleLogin} />
   }
 
   return (
