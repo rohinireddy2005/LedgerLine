@@ -1,6 +1,8 @@
 
 package com.ledgerline.ledgerline.config;
 
+import java.util.List;
+
 import jakarta.servlet.DispatcherType;
 
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -8,6 +10,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -31,6 +37,7 @@ public class SecurityConfig {
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             CustomUserDetailsService userDetailsService) {
+
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
     }
@@ -42,15 +49,19 @@ public class SecurityConfig {
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
+
         DaoAuthenticationProvider provider =
                 new DaoAuthenticationProvider(userDetailsService);
+
         provider.setPasswordEncoder(passwordEncoder());
+
         return provider;
     }
 
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration) throws Exception {
+
         return configuration.getAuthenticationManager();
     }
 
@@ -62,7 +73,45 @@ public class SecurityConfig {
                 new FilterRegistrationBean<>(jwtAuthenticationFilter);
 
         registration.setEnabled(false);
+
         return registration;
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(
+                List.of("http://localhost:5173")
+        );
+
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        );
+
+        configuration.setAllowedHeaders(
+                List.of(
+                        "Authorization",
+                        "Content-Type",
+                        "Accept",
+                        "Idempotency-Key"
+                )
+        );
+
+        configuration.setExposedHeaders(
+                List.of("Authorization")
+        );
+
+        configuration.setAllowCredentials(false);
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
     }
 
     @Bean
@@ -70,51 +119,42 @@ public class SecurityConfig {
             throws Exception {
 
         http
+            .cors(cors ->
+                cors.configurationSource(corsConfigurationSource())
+            )
             .csrf(csrf -> csrf.disable())
-
             .sessionManagement(session ->
                 session.sessionCreationPolicy(
                     SessionCreationPolicy.STATELESS
                 )
             )
-
             .authenticationProvider(authenticationProvider())
-
             .exceptionHandling(exception ->
                 exception.authenticationEntryPoint(
                     new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
                 )
             )
-
             .authorizeHttpRequests(auth -> auth
-
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/auth/register",
                     "/api/auth/login"
                 ).permitAll()
-
                 .requestMatchers(
                     HttpMethod.GET,
                     "/api/health"
                 ).permitAll()
-
                 .requestMatchers("/api/admin/**")
                     .hasRole("ADMIN")
-
                 .requestMatchers("/api/auditor/**")
                     .hasRole("AUDITOR")
-
                 .requestMatchers(
                     "/api/accounts/**",
                     "/api/transactions/**"
                 ).hasRole("ACCOUNT_HOLDER")
-
                 .anyRequest().authenticated()
             )
-
             .addFilterBefore(
                 jwtAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class

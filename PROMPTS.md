@@ -561,23 +561,74 @@ This milestone was verified locally. It must not be represented as committed unt
 
 No commit reference assigned.
 
+## Entry 19 - Final Security Improvements, Concurrency Testing, and Frontend Integration
+
+**Date:** 2026-11-11
+
+**What was asked:**
+
+How to strengthen the remaining backend security checks, improve transaction coordination in PostgreSQL, verify simultaneous transfers, and integrate the React frontend with the backend APIs.
+
+**Tool output:**
+
+Guidance for CORS configuration, JWT expiration validation, PostgreSQL advisory transaction locks, concurrent transfer integration tests, and React frontend integration.
+
+**What was wrong:**
+
+The JWT validation logic needed an explicit check for tokens without an expiration claim. The existing user-level locking approach also needed to be compatible with the restricted PostgreSQL runtime permissions. The frontend required appropriate backend CORS configuration, and simultaneous opposite-direction transfers needed database-backed verification.
+
+**What was done instead:**
+
+Implemented and reviewed the following changes:
+
+- Configured Spring Security CORS support for the local React frontend at `http://localhost:5173`.
+- Allowed the required HTTP methods and request headers, including `Authorization` and `Idempotency-Key`.
+- Updated JWT validation to reject tokens with missing expiration claims, expired tokens, or mismatched subjects.
+- Added an automated security test for a JWT without an expiration claim.
+- Updated the user repository locking query to use PostgreSQL transaction-level advisory locks.
+- Added PostgreSQL-backed integration testing for simultaneous opposite-direction transfers.
+- Verified that the tested transfers complete successfully and preserve the combined account balance.
+- Integrated the React frontend with the backend APIs for authentication, account management, transactions, and ledger viewing.
+- Built the frontend successfully using `npm run build`.
+
+Ran the complete backend regression suite:
+
+`mvn clean test`
+
+The verified result was:
+
+- Tests run: 83
+- Failures: 0
+- Errors: 0
+- Skipped: 0
+- Maven result: BUILD SUCCESS
+- Verification date: November 11, 2026
+
+The concurrency tests cover the implemented simultaneous opposite-direction transfer scenario. They do not establish performance under large-scale concurrency or heavy production load.
+
+The frontend build and manual local workflows were also verified. These checks do not establish that the application has been deployed or tested in a publicly accessible environment.
+
+**Commit reference:**
+
+No commit reference assigned. These changes were locally implemented and tested; they must not be represented as committed until an actual Git commit is created.
+
 ---
 
 ## Development Note
 
 Test counts and commit references represent the state at the time each entry was recorded. Pending work and uncommitted milestones are identified explicitly rather than presented as completed or committed.
 
-## Latest Verified Automated Test Result (2026-11-09)
+## Latest Verified Automated Test Result (2026-11-11)
 
-- Tests run: 81
+- Tests run: 83
 - Failures: 0
 - Errors: 0
 - Skipped: 0
 - Maven result: BUILD SUCCESS
 - Command: `mvn clean test`
-- Total execution time: 58.033 seconds
+- Verification time: November 11, 2026, 17:20 IST
 
-The result was obtained after production database privilege hardening and the additional authorization, repository, and PostgreSQL idempotency verification work.
+The result was obtained after the latest JWT validation, PostgreSQL advisory locking, security testing, and concurrent transfer integration testing changes.
 
 The complete suite includes service-level tests, API-level security tests, PostgreSQL integration tests, role authorization tests, registration security tests, auditor reporting tests, privileged account initialization tests, and administrative reconciliation tests.
 

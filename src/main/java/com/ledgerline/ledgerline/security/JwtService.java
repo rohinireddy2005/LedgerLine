@@ -1,3 +1,4 @@
+
 package com.ledgerline.ledgerline.security;
 
 import java.time.Instant;
@@ -49,8 +50,11 @@ public class JwtService {
 
         Claims claims = extractAllClaims(token);
 
-        return claims.getSubject().equals(userDetails.getUsername())
-                && claims.getExpiration().after(new Date());
+        Date expiration = claims.getExpiration();
+
+        return userDetails.getUsername().equals(claims.getSubject())
+                && expiration != null
+                && expiration.after(new Date());
     }
 
     private Claims extractAllClaims(String token) {

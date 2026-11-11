@@ -2,8 +2,14 @@
 package com.ledgerline.ledgerline.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,12 +21,10 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.ledgerline.ledgerline.dto.MoneyTransactionResponse;
 import com.ledgerline.ledgerline.dto.TransferRequest;
-
 import com.ledgerline.ledgerline.entity.Account;
 import com.ledgerline.ledgerline.entity.AppUser;
 import com.ledgerline.ledgerline.entity.Role;
 import com.ledgerline.ledgerline.entity.TransactionStatus;
-
 import com.ledgerline.ledgerline.repository.AccountRepository;
 import com.ledgerline.ledgerline.repository.AppUserRepository;
 
@@ -41,6 +45,7 @@ class MoneyTransferPostgresIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     private Long userId;
+    private Long destinationUserId;
     private Long sourceAccountId;
     private Long destinationAccountId;
 
@@ -62,6 +67,18 @@ class MoneyTransferPostgresIntegrationTest {
         user = appUserRepository.saveAndFlush(user);
         userId = user.getId();
 
+        AppUser destinationUser = new AppUser(
+                "Destination Test User",
+                "destination-test@ledgerline.test",
+                "test-password",
+                Role.ACCOUNT_HOLDER
+        );
+
+        destinationUser =
+                appUserRepository.saveAndFlush(destinationUser);
+
+        destinationUserId = destinationUser.getId();
+
         Account sourceAccount = new Account(
                 "TRANSFER_SOURCE001",
                 user
@@ -74,7 +91,7 @@ class MoneyTransferPostgresIntegrationTest {
 
         Account destinationAccount = new Account(
                 "TRANSFER_DEST001",
-                user
+                destinationUser
         );
 
         destinationAccount.setBalance(new BigDecimal("20.00"));
@@ -131,8 +148,7 @@ class MoneyTransferPostgresIntegrationTest {
         );
 
         BigDecimal totalBalance = jdbcTemplate.queryForObject(
-                "SELECT SUM(balance) FROM accounts "
-                + "WHERE id IN (?, ?)",
+                "SELECT SUM(balance) FROM accounts WHERE id IN (?, ?)",
                 BigDecimal.class,
                 sourceAccountId,
                 destinationAccountId
@@ -194,8 +210,7 @@ class MoneyTransferPostgresIntegrationTest {
         );
 
         Integer transactionCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM money_transactions "
-                + "WHERE id = ?",
+                "SELECT COUNT(*) FROM money_transactions WHERE id = ?",
                 Integer.class,
                 result.id()
         );
@@ -204,6 +219,158 @@ class MoneyTransferPostgresIntegrationTest {
                 1,
                 transactionCount,
                 "The transfer should be stored exactly once"
+        );
+    }
+
+    @Test
+    void simultaneousOppositeDirectionTransfersShouldCompleteSafely()
+            throws Exception {
+
+        ExecutorService executor =
+                Executors.newFixedThreadPool(2);
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        try {
+
+            Future<MoneyTransactionResponse> firstTransfer =
+                    executor.submit(() -> {
+
+                        ready.countDown();
+
+                        if (!start.await(5, TimeUnit.SECONDS)) {
+                            throw new IllegalStateException(
+                                    "First transfer did not receive start signal"
+                            );
+                        }
+
+                        TransferRequest request = new TransferRequest();
+                        request.setSourceAccountId(sourceAccountId);
+                        request.setDestinationAccountId(destinationAccountId);
+                        request.setAmount(new BigDecimal("10.00"));
+
+                        return moneyTransactionService.transfer(
+                                userId,
+                                request,
+                                "opposite-transfer-forward-001"
+                        );
+                    });
+
+            Future<MoneyTransactionResponse> secondTransfer =
+                    executor.submit(() -> {
+
+                        ready.countDown();
+
+                        if (!start.await(5, TimeUnit.SECONDS)) {
+                            throw new IllegalStateException(
+                                    "Second transfer did not receive start signal"
+                            );
+                        }
+
+                        TransferRequest request = new TransferRequest();
+                        request.setSourceAccountId(destinationAccountId);
+                        request.setDestinationAccountId(sourceAccountId);
+                        request.setAmount(new BigDecimal("10.00"));
+
+                        return moneyTransactionService.transfer(
+                                destinationUserId,
+                                request,
+                                "opposite-transfer-reverse-001"
+                        );
+                    });
+
+            assertTrue(
+                    ready.await(5, TimeUnit.SECONDS),
+                    "Both transfer threads should be ready"
+            );
+
+            start.countDown();
+
+            MoneyTransactionResponse firstResult =
+                    firstTransfer.get(15, TimeUnit.SECONDS);
+
+            MoneyTransactionResponse secondResult =
+                    secondTransfer.get(15, TimeUnit.SECONDS);
+
+            assertEquals(
+                    TransactionStatus.SUCCESS,
+                    firstResult.status(),
+                    "The forward transfer should succeed"
+            );
+
+            assertEquals(
+                    TransactionStatus.SUCCESS,
+                    secondResult.status(),
+                    "The reverse transfer should succeed"
+            );
+
+        } finally {
+
+            start.countDown();
+            executor.shutdownNow();
+
+            assertTrue(
+                    executor.awaitTermination(10, TimeUnit.SECONDS),
+                    "Transfer test threads should terminate"
+            );
+        }
+
+        Account updatedSource =
+                accountRepository.findById(sourceAccountId)
+                        .orElseThrow();
+
+        Account updatedDestination =
+                accountRepository.findById(destinationAccountId)
+                        .orElseThrow();
+
+        assertEquals(
+                0,
+                new BigDecimal("100.00")
+                        .compareTo(updatedSource.getBalance()),
+                "Source balance should return to its original value"
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("20.00")
+                        .compareTo(updatedDestination.getBalance()),
+                "Destination balance should return to its original value"
+        );
+
+        BigDecimal totalBalance = jdbcTemplate.queryForObject(
+                "SELECT SUM(balance) FROM accounts WHERE id IN (?, ?)",
+                BigDecimal.class,
+                sourceAccountId,
+                destinationAccountId
+        );
+
+        assertEquals(
+                0,
+                new BigDecimal("120.00").compareTo(totalBalance),
+                "Opposite transfers must preserve total money"
+        );
+
+        Integer transactionCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM money_transactions",
+                Integer.class
+        );
+
+        assertEquals(
+                2,
+                transactionCount,
+                "Both successful transfers should be recorded"
+        );
+
+        Integer ledgerCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM ledger_entries",
+                Integer.class
+        );
+
+        assertEquals(
+                4,
+                ledgerCount,
+                "Both transfers should create two ledger entries each"
         );
     }
 }

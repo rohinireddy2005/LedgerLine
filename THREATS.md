@@ -4,7 +4,7 @@
 
 LedgerLine is a money movement application that provides account management, financial transactions, administrative controls, auditor reporting, and an auditable transaction ledger.
 
-The backend uses Java 21, Spring Boot, Spring Security, JWT authentication, Spring Data JPA, and PostgreSQL. The planned frontend uses React and Vite.
+The frontend is implemented using React and Vite and communicates with the Spring Boot REST APIs. The backend uses Java 21, Spring Boot, Spring Security, JWT authentication, Spring Data JPA, and PostgreSQL.
 
 This threat model identifies important assets, potential security threats, implemented mitigations, and controls that still require implementation or verification.
 
@@ -36,7 +36,7 @@ This threat model identifies important assets, potential security threats, imple
 
 **Implementation status:** Implemented and tested through API-level security tests. Unauthenticated requests to protected account, transaction, administrator, and auditor APIs are rejected with HTTP 401.
 
-Production verification also confirmed that an unauthenticated request to `/api/accounts` returns HTTP 401.
+Local verification using the production application profile and restricted database role also confirmed that an unauthenticated request to `/api/accounts` returns HTTP 401.
 
 ### Threat 2 - Broken Object-Level Authorization
 
@@ -82,7 +82,9 @@ Database credentials and JWT secrets use environment variables. Final deployment
 
 **Implementation status:** JWT authentication, signature validation, expiration validation, and environment-based secret configuration are implemented. Automated API-level tests verify that malformed and expired JWTs receive HTTP 401.
 
-Production verification also confirmed successful login and authenticated access to the account endpoint.
+The JWT validation logic also checks the token subject and rejects tokens without a valid expiration claim.
+
+Local verification using the production application profile also confirmed successful login and authenticated access to the account endpoint.
 
 ### Threat 5 - Duplicate Financial Requests
 
@@ -116,18 +118,20 @@ The focused `MoneyTransactionIdempotencyPostgresIntegrationTest` passed with two
 **Mitigations:**
 
 - Use database transactions.
-- Apply pessimistic database locking where required.
+- Apply database locking where required.
 - Lock transfer accounts in a consistent order.
 - Validate available balances before withdrawals and transfers.
 - Test simultaneous transaction scenarios against PostgreSQL.
 
-**Implementation status:** Transaction boundaries and pessimistic locking are implemented.
+**Implementation status:** Transaction boundaries and pessimistic account locking are implemented.
 
 PostgreSQL integration tests execute simultaneous withdrawals and verify that only one withdrawal succeeds when the combined withdrawal amount exceeds the available balance. The final balance and ledger entries are verified.
 
 Additional PostgreSQL integration tests verify concurrent duplicate idempotency requests.
 
-Further stress testing under larger transaction loads remains pending.
+Additional PostgreSQL integration testing verifies simultaneous transfers in opposite directions between two accounts. Both transfers complete successfully, account balances return to their expected values, the total money remains unchanged, and the expected transaction and ledger records are persisted.
+
+The opposite-direction transfer test uses concurrent execution with a synchronization barrier. It verifies this specific simultaneous-transfer scenario; larger-scale concurrent transaction stress testing remains pending.
 
 ### Threat 7 - Unauthorized Balance Modification
 
@@ -146,7 +150,7 @@ Further stress testing under larger transaction loads remains pending.
 
 Administrative reconciliation is implemented to compare account balances against ledger records and identify inconsistencies without modifying financial records.
 
-Production database privilege hardening has been completed and verified. The runtime application role does not own the production database, tables, sequences, or trigger functions. It does not have permission to create schema objects or modify/delete append-only ledger and audit records.
+Production database privilege hardening has been completed and verified. The runtime application role does not own the production database, tables, sequences, or trigger functions. It does not have permission to create schema objects or modify or delete append-only ledger and audit records.
 
 The runtime role has SELECT, INSERT, and UPDATE permissions on the accounts table because application operations require account updates. This table-level UPDATE permission is broader than a column-specific permission and remains a possible future hardening improvement.
 
@@ -181,7 +185,7 @@ The reconciliation operation:
 
 PostgreSQL-backed integration tests verify successful reconciliation, incorrect running balances, and ledger entries associated with rejected transactions.
 
-The focused `AdminApiIntegrationTest` passed with 15 tests, zero failures, zero errors, and zero skipped tests.
+The PostgreSQL-backed administrative API integration tests verify reconciliation behavior, including successful reconciliation, incorrect running balances, and ledger entries associated with rejected transactions.
 
 Production database ownership and runtime privileges have been separated. The `ledgerline_owner` role owns the production database objects and cannot log in. The `ledgerline_app` runtime role cannot alter or disable the database triggers because it does not own those objects and does not have the required DDL privileges.
 
@@ -353,6 +357,7 @@ The following scenarios are included in the security verification plan.
 | Currency mismatch | Implemented and tested |
 | Maximum balance restrictions | Implemented and tested |
 | Concurrent withdrawals against PostgreSQL | Implemented and tested |
+| Simultaneous opposite-direction transfers against PostgreSQL | Implemented and tested |
 | Database-level ledger UPDATE/DELETE protection | Implemented and tested |
 | Auditor transaction report access | Implemented and tested |
 | Auditor account report access | Implemented and tested |
@@ -375,17 +380,18 @@ The following scenarios are included in the security verification plan.
 | Production database ownership separation | Implemented and verified |
 | Production runtime database privilege restrictions | Implemented and verified |
 | Production Hibernate schema validation | Implemented and verified |
-| Production application startup with restricted database role | Implemented and verified |
-| Production health endpoint | Implemented and verified |
-| Production registration and login | Implemented and verified |
-| Production authenticated account endpoint | Implemented and verified |
+| Local production-profile application startup with restricted database role | Implemented and verified |
+| Local production-profile health endpoint | Implemented and verified |
+| Local production-profile registration and login | Implemented and verified |
+| Local production-profile authenticated account endpoint | Implemented and verified |
 | Final logging and secret-exposure review | Pending |
 | Production credential provisioning and rotation | Pending |
 | Independent audit backups and tamper-evidence verification | Pending |
 | Larger auditor reporting datasets and pagination workflows | Pending |
-| Deployment and end-to-end application verification | Pending |
+| Production deployment and deployed-environment end-to-end verification | Pending |
 | Larger concurrent transaction load testing | Pending |
 | Column-level database permissions for account updates | Pending |
+| Production frontend CORS configuration and verification | Pending |
 
 ## 5. Security Principles
 
@@ -472,9 +478,9 @@ The restored database was checked for application tables, data, and database tri
 
 This verifies that the created backup could be restored successfully. Ongoing independent audit backups and recovery procedures remain pending.
 
-### Production application verification
+### Local production-profile application verification
 
-The production application was started successfully using the restricted `ledgerline_app` database role.
+The application was started locally using the production application profile and the restricted `ledgerline_app` database role.
 
 The following checks were completed:
 
@@ -487,7 +493,30 @@ The following checks were completed:
 - Test-user login returned HTTP 200.
 - An authenticated request to `/api/accounts` returned HTTP 200.
 
-These checks verify the tested production startup and API operations. They do not establish that every endpoint or deployment scenario has been verified.
+These checks verify the tested local startup and API operations using the production profile and restricted database role. They do not establish that the application has been deployed to a production hosting environment or that every endpoint and deployment scenario has been verified.
+
+### Frontend verification
+
+The React and Vite frontend has been implemented and integrated with the backend APIs.
+
+The frontend production build was verified using:
+
+`npm run build`
+
+The build completed successfully.
+
+Local end-to-end checks covered:
+
+- User login and logout.
+- Account data display.
+- Deposit operations.
+- Withdrawal operations.
+- Transfer operations.
+- Transaction and ledger data display.
+
+These checks were performed in the local development environment. Deployed-environment end-to-end verification remains pending.
+
+The current CORS configuration permits the local frontend origin `http://localhost:5173`. The allowed origin must be updated to the actual frontend hosting origin before deployment. Production cross-origin access has not yet been verified.
 
 ### Remaining work
 
@@ -497,27 +526,28 @@ The following areas require further work:
 2. Production privileged-account provisioning and credential rotation.
 3. Independent audit backups and additional tamper-evidence mechanisms.
 4. Further auditor reporting tests involving larger datasets and pagination.
-5. Deployment and end-to-end application verification.
+5. Production deployment and deployed-environment end-to-end verification.
 6. Additional stress testing under larger concurrent transaction loads.
 7. Review of column-level database permissions for account updates.
+8. Production frontend CORS configuration and verification.
 
-Concurrent duplicate idempotency request testing, ledger-to-account-balance reconciliation, production database privilege hardening, and production startup verification have been implemented and tested or verified as described above.
+Concurrent duplicate idempotency request testing, ledger-to-account-balance reconciliation, production database privilege hardening, local production-profile startup verification, and local frontend end-to-end checks have been implemented and tested or verified as described above.
 
 Unimplemented or unverified controls remain pending until implementation and verification are complete.
 
 The threat model must be updated as the application evolves. No security control should be described as complete solely because it is listed as a mitigation.
 
-### Latest verified automated test baseline (2026-11-09)
+### Latest verified automated test baseline (2026-11-11)
 
-- Tests run: 81
+- Tests run: 83
 - Failures: 0
 - Errors: 0
 - Skipped: 0
 - Maven result: BUILD SUCCESS
 - Command: `mvn clean test`
+- Completion time: 17:20 IST
 
-
-The complete test suite passed after production database privilege hardening and the `FinancialIntegrityInitializer` profile change.
+The complete test suite passed on November 11, 2026.
 
 The suite includes service-level tests, API-level security tests, PostgreSQL integration tests, role authorization tests, registration security tests, auditor reporting tests, privileged account initialization tests, and administrative reconciliation tests.
 
