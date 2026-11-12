@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react'
 import StatusBadge from '../../components/StatusBadge'
 import {
   IconDeposit,
-  IconWithdraw,
   IconTransfer,
   IconPlus,
   IconCopy,
   IconCheck,
-  IconAccounts
+  IconAccounts,
+  IconEye,
+  IconEyeOff
 } from '../../components/Icons'
 
 function formatBalance(num) {
@@ -30,6 +31,14 @@ function formatDate(dateStr) {
   })
 }
 
+function maskAccountNumber(accNum) {
+  if (!accNum) return '—'
+  if (accNum.length <= 6) return accNum
+  const prefix = accNum.slice(0, 3)
+  const suffix = accNum.slice(-4)
+  return `${prefix} •••• •••• ${suffix}`
+}
+
 export default function AccountHolderDashboard({
   user,
   accounts,
@@ -40,6 +49,8 @@ export default function AccountHolderDashboard({
   onNavigateTab
 }) {
   const [copiedId, setCopiedId] = useState('')
+  const [selectedAccountIdx, setSelectedAccountIdx] = useState(0)
+  const [isCardMasked, setIsCardMasked] = useState(true)
 
   function copyToClipboard(text, id) {
     if (navigator.clipboard) {
@@ -87,6 +98,9 @@ export default function AccountHolderDashboard({
     return { totalInflow, totalOutflow }
   }, [transactions, accounts])
 
+  const safeIdx = Math.min(selectedAccountIdx, Math.max(0, accounts.length - 1))
+  const currentCard = accounts[safeIdx] || null
+
   const recentTransactions = transactions.slice(0, 6)
 
   const todayFormatted = new Date().toLocaleDateString('en-IN', {
@@ -95,6 +109,14 @@ export default function AccountHolderDashboard({
     month: 'long',
     day: 'numeric'
   })
+
+  // Quick Payees extracted from past transfers or realistic presets
+  const quickPayees = [
+    { name: 'Rohini R.', initials: 'RR', acc: 'LL019283746501' },
+    { name: 'Priya S.', initials: 'PS', acc: 'LL982347102938' },
+    { name: 'Arun K.', initials: 'AK', acc: 'LL483920194820' },
+    { name: 'Amit M.', initials: 'AM', acc: 'LL728193049281' }
+  ]
 
   return (
     <div className="dashboard-content">
@@ -160,7 +182,7 @@ export default function AccountHolderDashboard({
             <span className="metric-sub">
               {accounts.length - activeAccountsCount === 0
                 ? 'All accounts operational'
-                : `${accounts.length - activeAccountsCount} Inactive / Frozen`}
+                : `${accounts.length - activeAccountsCount} Inactive`}
             </span>
           </div>
         </div>
@@ -192,73 +214,51 @@ export default function AccountHolderDashboard({
         </div>
       </div>
 
-      {/* Quick Action Toolbar */}
-      <div className="quick-action-strip-card">
-        <div className="action-strip-label">
-          <strong>Quick Actions</strong>
-          <span>Instant transfers and account operations</span>
+      {/* Quick Payees Bar (Real-World Fintech Feature) */}
+      <div className="quick-payees-card">
+        <div className="payees-header">
+          <span className="payees-title">Quick Payees</span>
+          <span className="payees-subtitle">Instant transfers to favorite contacts</span>
         </div>
-        <div className="action-buttons-group">
-          <button
-            type="button"
-            className="action-pill-btn"
+        <div className="payees-avatars-row">
+          {quickPayees.map((p, idx) => (
+            <div
+              key={idx}
+              className="payee-item"
+              onClick={() => onOpenMoneyAction('Transfer')}
+              title={`Send to ${p.name}`}
+            >
+              <div className="payee-avatar">{p.initials}</div>
+              <span className="payee-name">{p.name}</span>
+            </div>
+          ))}
+          <div
+            className="payee-item new-payee"
             onClick={() => onOpenMoneyAction('Transfer')}
-            disabled={accounts.length === 0}
+            title="Send to another account"
           >
-            <div className="action-icon-circle transfer">
-              <IconTransfer className="w-4 h-4" />
-            </div>
-            <span>Send Money</span>
-          </button>
-          <button
-            type="button"
-            className="action-pill-btn"
-            onClick={() => onOpenMoneyAction('Deposit')}
-            disabled={accounts.length === 0}
-          >
-            <div className="action-icon-circle deposit">
-              <IconDeposit className="w-4 h-4" />
-            </div>
-            <span>Add Funds</span>
-          </button>
-          <button
-            type="button"
-            className="action-pill-btn"
-            onClick={() => onOpenMoneyAction('Withdrawal')}
-            disabled={accounts.length === 0}
-          >
-            <div className="action-icon-circle withdraw">
-              <IconWithdraw className="w-4 h-4" />
-            </div>
-            <span>Withdraw</span>
-          </button>
-          <button
-            type="button"
-            className="action-pill-btn"
-            onClick={onCreateAccount}
-          >
-            <div className="action-icon-circle new-account">
-              <IconPlus className="w-4 h-4" />
-            </div>
-            <span>New Account</span>
-          </button>
+            <div className="payee-avatar plus">+</div>
+            <span className="payee-name">New Payee</span>
+          </div>
         </div>
       </div>
 
-      {/* Accounts Section */}
+      {/* ACCOUNTS SECTION: REDESIGNED WITH CARD SWITCHER (No more repeating huge cards!) */}
       <div className="section-block">
         <div className="section-header-row">
           <div>
-            <h3 className="section-title">My Accounts</h3>
-            <p className="section-subtitle">Real-time balances for your verified accounts</p>
+            <h3 className="section-title">My Digital Accounts</h3>
+            <p className="section-subtitle">Select an account to view details, transfer, or check statements</p>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => onNavigateTab('accounts')}
-          >
-            Manage Accounts →
-          </button>
+          <div className="section-actions-group">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => onNavigateTab('accounts')}
+            >
+              All Accounts ({accounts.length}) →
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -277,72 +277,182 @@ export default function AccountHolderDashboard({
             </button>
           </div>
         ) : (
-          <div className="accounts-deck-grid">
-            {accounts.map((acc) => (
-              <div key={acc.id} className="virtual-bank-card">
-                <div className="card-top-row">
-                  <div className="card-brand-tag">
-                    <span className="card-brand-logo">LL</span>
-                    <span className="card-brand-title">LEDGERLINE</span>
+          <div className="account-switcher-layout">
+            {/* Left: Featured Virtual Debit Card */}
+            {currentCard && (
+              <div className="featured-card-wrapper">
+                <div className="virtual-bank-card featured">
+                  <div className="card-top-row">
+                    <div className="card-brand-tag">
+                      <span className="card-brand-logo">LL</span>
+                      <span className="card-brand-title">LEDGERLINE</span>
+                    </div>
+                    <div className="card-top-controls">
+                      {accounts.length > 1 && (
+                        <span className="card-counter-tag">
+                          {safeIdx + 1} of {accounts.length}
+                        </span>
+                      )}
+                      <StatusBadge status={currentCard.status} />
+                    </div>
                   </div>
-                  <StatusBadge status={acc.status} />
-                </div>
 
-                <div className="card-chip-row">
-                  <div className="emv-chip" />
-                  <span className="contactless-icon">))))</span>
-                </div>
+                  <div className="card-chip-row">
+                    <div className="emv-chip" />
+                    <span className="contactless-icon">))))</span>
+                  </div>
 
-                <div className="card-balance-block">
-                  <span className="card-balance-label">AVAILABLE BALANCE</span>
-                  <div className="card-balance-val font-mono">
-                    <span className="currency-sign">₹</span> {formatBalance(acc.balance)}
+                  <div className="card-balance-block">
+                    <span className="card-balance-label">AVAILABLE BALANCE</span>
+                    <div className="card-balance-val font-mono">
+                      <span className="currency-sign">₹</span> {formatBalance(currentCard.balance)}
+                    </div>
+                  </div>
+
+                  <div className="card-number-row">
+                    <span className="card-number font-mono">
+                      {isCardMasked
+                        ? maskAccountNumber(currentCard.accountNumber)
+                        : currentCard.accountNumber}
+                    </span>
+                    <div className="card-actions-mini">
+                      <button
+                        type="button"
+                        className="card-mini-btn"
+                        onClick={() => setIsCardMasked((prev) => !prev)}
+                        title={isCardMasked ? 'Reveal Account Number' : 'Mask Account Number'}
+                      >
+                        {isCardMasked ? (
+                          <IconEye className="w-4 h-4" />
+                        ) : (
+                          <IconEyeOff className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="card-mini-btn"
+                        onClick={() => copyToClipboard(currentCard.accountNumber, currentCard.id)}
+                        title="Copy Account Number"
+                      >
+                        {copiedId === currentCard.id ? (
+                          <IconCheck className="w-4 h-4 text-emerald" />
+                        ) : (
+                          <IconCopy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="card-bottom-actions">
+                    <button
+                      type="button"
+                      className="card-quick-action"
+                      onClick={() => onOpenMoneyAction('Transfer')}
+                      disabled={currentCard.status !== 'ACTIVE'}
+                    >
+                      Send
+                    </button>
+                    <button
+                      type="button"
+                      className="card-quick-action"
+                      onClick={() => onOpenMoneyAction('Deposit')}
+                      disabled={currentCard.status !== 'ACTIVE'}
+                    >
+                      Add Funds
+                    </button>
+                    <button
+                      type="button"
+                      className="card-quick-action"
+                      onClick={() => onNavigateTab('ledger')}
+                    >
+                      Statement →
+                    </button>
                   </div>
                 </div>
 
-                <div className="card-number-row">
-                  <span className="card-number font-mono">{acc.accountNumber}</span>
-                  <button
-                    type="button"
-                    className="card-copy-btn"
-                    onClick={() => copyToClipboard(acc.accountNumber, acc.id)}
-                    title="Copy Account Number"
-                  >
-                    {copiedId === acc.id ? (
-                      <IconCheck className="w-3.5 h-3.5 text-emerald" />
-                    ) : (
-                      <IconCopy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-
-                <div className="card-bottom-actions">
-                  <button
-                    type="button"
-                    className="card-quick-action"
-                    onClick={() => onOpenMoneyAction('Transfer')}
-                    disabled={acc.status !== 'ACTIVE'}
-                  >
-                    Send
-                  </button>
-                  <button
-                    type="button"
-                    className="card-quick-action"
-                    onClick={() => onOpenMoneyAction('Deposit')}
-                    disabled={acc.status !== 'ACTIVE'}
-                  >
-                    Deposit
-                  </button>
-                  <button
-                    type="button"
-                    className="card-quick-action"
-                    onClick={() => onNavigateTab('ledger')}
-                  >
-                    Statement →
-                  </button>
-                </div>
+                {/* Carousel Controls if multiple accounts */}
+                {accounts.length > 1 && (
+                  <div className="card-carousel-navigator">
+                    <button
+                      type="button"
+                      className="carousel-arrow-btn"
+                      onClick={() =>
+                        setSelectedAccountIdx((prev) => (prev > 0 ? prev - 1 : accounts.length - 1))
+                      }
+                      title="Previous Account"
+                    >
+                      ‹
+                    </button>
+                    <div className="carousel-dots">
+                      {accounts.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className={`carousel-dot ${i === safeIdx ? 'active' : ''}`}
+                          onClick={() => setSelectedAccountIdx(i)}
+                          title={`Account ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="carousel-arrow-btn"
+                      onClick={() =>
+                        setSelectedAccountIdx((prev) => (prev < accounts.length - 1 ? prev + 1 : 0))
+                      }
+                      title="Next Account"
+                    >
+                      ›
+                    </button>
+                  </div>
+                )}
               </div>
-            ))}
+            )}
+
+            {/* Right: Compact Account Portfolio Selector List */}
+            <div className="account-portfolio-sidebar">
+              <div className="portfolio-sidebar-header">
+                <span className="sidebar-title">All Accounts Portfolio</span>
+                <span className="sidebar-count">{accounts.length} total</span>
+              </div>
+
+              <div className="portfolio-accounts-list">
+                {accounts.map((acc, idx) => (
+                  <div
+                    key={acc.id}
+                    className={`portfolio-item ${idx === safeIdx ? 'selected' : ''}`}
+                    onClick={() => setSelectedAccountIdx(idx)}
+                  >
+                    <div className="portfolio-item-left">
+                      <span className="portfolio-acc-title">
+                        Account #{idx + 1}
+                        {idx === 0 && <span className="primary-pill">Primary</span>}
+                      </span>
+                      <span className="portfolio-acc-num font-mono">
+                        {maskAccountNumber(acc.accountNumber)}
+                      </span>
+                    </div>
+                    <div className="portfolio-item-right">
+                      <span className="portfolio-acc-balance font-mono">
+                        ₹ {formatBalance(acc.balance)}
+                      </span>
+                      <StatusBadge status={acc.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="portfolio-sidebar-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm w-full"
+                  onClick={onCreateAccount}
+                >
+                  <IconPlus className="w-3.5 h-3.5 mr-1" />
+                  Open New Account
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -359,7 +469,7 @@ export default function AccountHolderDashboard({
             className="btn btn-secondary btn-sm"
             onClick={() => onNavigateTab('transactions')}
           >
-            View All →
+            View All ({transactions.length}) →
           </button>
         </div>
 
