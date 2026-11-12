@@ -121,7 +121,7 @@ export default function TransactionsView({ transactions, accounts, isLoading }) 
       'Destination Account',
       'Amount (INR)',
       'Status',
-      'Idempotency Key',
+      'Reference Number',
       'Rejection Reason'
     ]
 
@@ -487,10 +487,10 @@ export default function TransactionsView({ transactions, accounts, isLoading }) 
             )}
 
             <div className="idempotency-key-box">
-              <span className="idempotency-label">IDEMPOTENCY / CORRELATION KEY</span>
+              <span className="idempotency-label">TRANSACTION REFERENCE NUMBER</span>
               <code className="idempotency-key-code">{selectedTx.idempotencyKey || 'N/A'}</code>
               <span className="idempotency-explainer">
-                Guarantees zero-duplicate execution across retries and network interruptions.
+                Cryptographic transaction reference guaranteeing zero-duplicate execution.
               </span>
             </div>
 

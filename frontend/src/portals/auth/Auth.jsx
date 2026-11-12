@@ -127,7 +127,7 @@ export default function Auth({ onLoginSuccess }) {
               <div className="feature-icon-circle">🛡️</div>
               <div>
                 <strong>Bank-Grade Cryptographic Security</strong>
-                <span>Spring Security, BCrypt encryption, and tamper-evident transaction chains.</span>
+                <span>Multi-layered financial data encryption, biometric protection, and real-time fraud defense.</span>
               </div>
             </div>
             <div className="showcase-feature-item">

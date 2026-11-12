@@ -5,7 +5,6 @@ import {
   IconShield,
   IconBell,
   IconLock,
-  IconCheck,
   IconChevronDown
 } from './Icons'
 
@@ -17,25 +16,25 @@ export default function Navbar({ user, role, onLogout, onToggleSidebar, onOpenPr
   const [notifications, setNotifications] = useState([
     {
       id: 1,
-      title: 'Ledger Audit Passed',
-      desc: 'All balance invariants and double-entry debits/credits match exactly.',
-      time: '10m ago',
+      title: 'Security Verification',
+      desc: 'Successful authentication verified from your current device.',
+      time: 'Just now',
       unread: true,
       type: 'success'
     },
     {
       id: 2,
-      title: 'Cloud Database Connected',
-      desc: 'Active connection pooler established to Supabase PostgreSQL.',
-      time: '25m ago',
+      title: 'Zero-Fee Transfers Active',
+      desc: 'Instant peer-to-peer and account transfers are active with zero fees.',
+      time: '1h ago',
       unread: true,
       type: 'info'
     },
     {
       id: 3,
-      title: 'Session Authenticated',
-      desc: 'Bank-grade JWT session active with Spring Security protection.',
-      time: '1h ago',
+      title: 'Monthly Statement Ready',
+      desc: 'Your certified account statement is available to export as CSV or PDF.',
+      time: 'Yesterday',
       unread: false,
       type: 'info'
     }
@@ -156,7 +155,7 @@ export default function Navbar({ user, role, onLogout, onToggleSidebar, onOpenPr
               </div>
               <div className="dropdown-panel-footer">
                 <span className="text-xs text-muted">
-                  <IconCheck className="w-3 h-3 inline-icon text-emerald" /> Ledger real-time audit active
+                  <IconShield className="w-3 h-3 inline-icon text-emerald" /> 256-Bit SSL Secured Session
                 </span>
               </div>
             </div>

@@ -165,7 +165,13 @@ export default function AdminPortal({ activeTab, onNavigateTab }) {
         throw new Error(data?.message || data?.detail || `Failed to ${actionType} account.`)
       }
 
-      setFeedback(`Account ${actionAccount.accountNumber} successfully ${actionType}d.`)
+      const pastVerb =
+        actionType === 'freeze'
+          ? 'frozen'
+          : actionType === 'unfreeze'
+            ? 'unfrozen'
+            : 'closed'
+      setFeedback(`Account ${actionAccount.accountNumber} successfully ${pastVerb}.`)
       setActionAccount(null)
       setActionType('')
       setActionReason('')
@@ -565,26 +571,26 @@ export default function AdminPortal({ activeTab, onNavigateTab }) {
               <div className="reconciliation-comparison-grid">
                 <div className="reconcile-stat-card">
                   <span className="stat-label">STORED ACCOUNT BALANCE</span>
-                  <span className="stat-val font-mono">
+                  <span className="stat-val font-mono text-primary font-bold">
                     ₹ {formatBalance(reconciliationResult.accountBalance)}
                   </span>
-                  <span className="stat-sub">From <code>accounts</code> table</span>
+                  <span className="stat-sub">Current settled account balance</span>
                 </div>
 
                 <div className="reconcile-stat-card">
                   <span className="stat-label">CALCULATED LEDGER BALANCE</span>
-                  <span className="stat-val font-mono text-emerald">
+                  <span className="stat-val font-mono text-emerald font-bold">
                     ₹ {formatBalance(reconciliationResult.calculatedBalance)}
                   </span>
-                  <span className="stat-sub">Sum of all chronological credits & debits</span>
+                  <span className="stat-sub">Verified double-entry statement sum</span>
                 </div>
 
                 <div className="reconcile-stat-card">
                   <span className="stat-label">TOTAL LEDGER ENTRIES</span>
-                  <span className="stat-val font-mono">
+                  <span className="stat-val font-mono text-primary font-bold">
                     {reconciliationResult.totalEntries}
                   </span>
-                  <span className="stat-sub">Double-entry verified records</span>
+                  <span className="stat-sub">Audited transaction records</span>
                 </div>
               </div>
 
@@ -597,12 +603,12 @@ export default function AdminPortal({ activeTab, onNavigateTab }) {
         </div>
       )}
 
-      {/* USER REGISTRY TAB */}
+      {/* USER DIRECTORY TAB */}
       {activeTab === 'admin-users' && (
         <div className="admin-users-view">
           <div className="page-title-bar">
             <div>
-              <h2 className="page-main-heading">User Registry</h2>
+              <h2 className="page-main-heading">User Directory</h2>
               <p className="page-main-subtext">
                 All registered clients, administrators, and auditors in the system.
               </p>

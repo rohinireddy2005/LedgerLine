@@ -141,28 +141,28 @@ export default function ProfileModal({ user, role, isOpen, onClose, onPasswordCh
 
           <div className="profile-meta-grid">
             <div className="profile-meta-item">
-              <span className="meta-label">User ID</span>
+              <span className="meta-label">Customer ID</span>
               <span className="meta-value font-mono">#{user?.id || '—'}</span>
             </div>
             <div className="profile-meta-item">
-              <span className="meta-label">Security Role</span>
+              <span className="meta-label">Account Role</span>
               <span className="meta-value">{roleLabels[role] || role}</span>
             </div>
             <div className="profile-meta-item">
-              <span className="meta-label">Authentication Status</span>
-              <span className="meta-value text-emerald font-semibold">Active Session (JWT)</span>
+              <span className="meta-label">Account Status</span>
+              <span className="meta-value text-emerald font-semibold">Active & Verified</span>
             </div>
             <div className="profile-meta-item">
-              <span className="meta-label">Encryption Level</span>
-              <span className="meta-value font-mono">BCrypt + TLS 1.3</span>
+              <span className="meta-label">Security Tier</span>
+              <span className="meta-value font-semibold">Two-Factor Protected</span>
             </div>
           </div>
 
           <div className="security-notice-box">
             <IconShield className="w-5 h-5 text-primary flex-shrink-0" />
             <p className="text-xs text-muted mb-0">
-              Your identity is protected by Spring Security role-based access control. All session
-              tokens are cryptographically signed and verified on every ledger operation.
+              Your account is protected by 256-bit financial encryption and continuous transaction
+              monitoring. Keep your password confidential at all times.
             </p>
           </div>
         </div>

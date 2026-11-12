@@ -22,7 +22,7 @@ export default function Sidebar({ role, activeTab, onSelectTab, isOpen, onClose 
     { id: 'admin-overview', label: 'Admin Overview', icon: IconDashboard },
     { id: 'admin-accounts', label: 'Account Controls', icon: IconAccounts },
     { id: 'admin-reconciliation', label: 'Reconciliation', icon: IconReconciliation },
-    { id: 'admin-users', label: 'User Registry', icon: IconUsers },
+    { id: 'admin-users', label: 'User Directory', icon: IconUsers },
     { id: 'admin-audits', label: 'Status Audits', icon: IconAudit },
   ]
 

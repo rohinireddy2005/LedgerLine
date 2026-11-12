@@ -148,7 +148,7 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
 
   const handleExportTransactionsCSV = () => {
     if (transactions.length === 0) return
-    const headers = ['Transaction ID', 'Date & Time', 'Initiator Name', 'Initiator Email', 'Type', 'Amount (INR)', 'Status', 'Idempotency Key']
+    const headers = ['Transaction ID', 'Date & Time', 'Initiator Name', 'Initiator Email', 'Type', 'Amount (INR)', 'Status', 'Reference Number']
     const rows = transactions.map((tx) => [
       `"${tx.transactionId}"`,
       `"${formatDate(tx.createdAt)}"`,
