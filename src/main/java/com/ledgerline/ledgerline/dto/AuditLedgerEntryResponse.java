@@ -23,6 +23,10 @@ public record AuditLedgerEntryResponse(
         Instant createdAt
 ) {
 
+    public Long id() {
+        return ledgerEntryId;
+    }
+
     public static AuditLedgerEntryResponse from(LedgerEntry entry) {
 
         return new AuditLedgerEntryResponse(

@@ -130,7 +130,7 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
     const headers = ['Account Number', 'Account ID', 'Owner Name', 'Owner Email', 'Status', 'Balance (INR)', 'Currency']
     const rows = accounts.map((acc) => [
       `"${acc.accountNumber}"`,
-      `"${acc.id}"`,
+      `"${acc.accountId ?? acc.id ?? ''}"`,
       `"${acc.ownerName}"`,
       `"${acc.ownerEmail}"`,
       `"${acc.status}"`,
@@ -291,33 +291,36 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
                 </tr>
               </thead>
               <tbody>
-                {accounts.map((acc) => (
-                  <tr key={acc.id}>
-                    <td>
-                      <span className="font-mono font-bold text-primary">{acc.accountNumber}</span>
-                    </td>
-                    <td className="font-mono text-muted">#{acc.id}</td>
-                    <td className="font-medium">{acc.ownerName}</td>
-                    <td className="font-mono font-bold">₹ {formatBalance(acc.balance)}</td>
-                    <td>
-                      <StatusBadge status={acc.status} />
-                    </td>
-                    <td className="text-muted text-xs">{formatDate(acc.createdAt)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-xs"
-                        onClick={() => {
-                          setTargetAccountId(String(acc.id))
-                          onNavigateTab('auditor-ledger')
-                          fetchLedger(acc.id, 0)
-                        }}
-                      >
-                        Inspect Ledger
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {accounts.map((acc) => {
+                  const accountIdentifier = acc.accountId ?? acc.id
+                  return (
+                    <tr key={accountIdentifier || acc.accountNumber}>
+                      <td>
+                        <span className="font-mono font-bold text-primary">{acc.accountNumber}</span>
+                      </td>
+                      <td className="font-mono text-muted">#{accountIdentifier || '—'}</td>
+                      <td className="font-medium">{acc.ownerName}</td>
+                      <td className="font-mono font-bold">₹ {formatBalance(acc.balance)}</td>
+                      <td>
+                        <StatusBadge status={acc.status} />
+                      </td>
+                      <td className="text-muted text-xs">{formatDate(acc.createdAt)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-xs"
+                          onClick={() => {
+                            setTargetAccountId(String(accountIdentifier))
+                            onNavigateTab('auditor-ledger')
+                            fetchLedger(accountIdentifier, 0)
+                          }}
+                        >
+                          Inspect Ledger
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -514,22 +517,25 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {ledgerEntries.map((e) => (
-                      <tr key={e.id}>
-                        <td className="text-muted">#{e.id}</td>
-                        <td className="font-bold text-primary">#{e.transactionId}</td>
-                        <td>
-                          <StatusBadge status={e.entryType} />
-                        </td>
-                        <td className="font-semibold">
-                          <span className={e.entryType === 'CREDIT' ? 'text-emerald' : 'text-danger'}>
-                            {e.entryType === 'CREDIT' ? '+ ' : '- '}₹ {formatBalance(e.amount)}
-                          </span>
-                        </td>
-                        <td className="font-bold">₹ {formatBalance(e.balanceAfter)}</td>
-                        <td className="text-muted text-xs">{formatDate(e.createdAt)}</td>
-                      </tr>
-                    ))}
+                    {ledgerEntries.map((e) => {
+                      const entryId = e.ledgerEntryId ?? e.id
+                      return (
+                        <tr key={entryId || `${e.transactionId}-${e.createdAt}`}>
+                          <td className="text-muted font-mono">#{entryId || '—'}</td>
+                          <td className="font-bold text-primary font-mono">#{e.transactionId}</td>
+                          <td>
+                            <StatusBadge status={e.entryType} />
+                          </td>
+                          <td className="font-semibold">
+                            <span className={e.entryType === 'CREDIT' ? 'text-emerald' : 'text-danger'}>
+                              {e.entryType === 'CREDIT' ? '+ ' : '- '}₹ {formatBalance(e.amount)}
+                            </span>
+                          </td>
+                          <td className="font-bold">₹ {formatBalance(e.balanceAfter)}</td>
+                          <td className="text-muted text-xs">{formatDate(e.createdAt)}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

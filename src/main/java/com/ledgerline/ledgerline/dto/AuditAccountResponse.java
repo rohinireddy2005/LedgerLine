@@ -18,6 +18,10 @@ public record AuditAccountResponse(
         Instant createdAt
 ) {
 
+    public Long id() {
+        return accountId;
+    }
+
     public static AuditAccountResponse from(Account account) {
 
         return new AuditAccountResponse(

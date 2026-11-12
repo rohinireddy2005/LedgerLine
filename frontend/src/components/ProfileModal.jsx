@@ -141,7 +141,13 @@ export default function ProfileModal({ user, role, isOpen, onClose, onPasswordCh
 
           <div className="profile-meta-grid">
             <div className="profile-meta-item">
-              <span className="meta-label">Customer ID</span>
+              <span className="meta-label">
+                {role === 'ROLE_ACCOUNT_HOLDER'
+                  ? 'Customer ID'
+                  : role === 'ROLE_ADMIN'
+                    ? 'Administrator ID'
+                    : 'Auditor ID'}
+              </span>
               <span className="meta-value font-mono">#{user?.id || '—'}</span>
             </div>
             <div className="profile-meta-item">
