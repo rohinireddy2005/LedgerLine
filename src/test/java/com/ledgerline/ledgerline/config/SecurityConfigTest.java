@@ -59,4 +59,13 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    void changePasswordEndpointShouldRejectUnauthenticatedRequest() throws Exception {
+        mockMvc.perform(
+                post("/api/auth/change-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"oldPassword123!\",\"newPassword\":\"newPassword123!\"}")
+        ).andExpect(status().isUnauthorized());
+    }
 }

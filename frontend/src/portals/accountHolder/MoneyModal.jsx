@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react'
 import API_BASE_URL from '../../config'
 import Modal from '../../components/Modal'
-import { IconDeposit, IconWithdraw, IconTransfer, IconCheck, IconShield } from '../../components/Icons'
+import {
+  IconDeposit,
+  IconWithdraw,
+  IconTransfer,
+  IconCheck,
+  IconShield,
+  IconAlertTriangle,
+  IconLock
+} from '../../components/Icons'
 
 function generateIdempotencyKey() {
   if (window.crypto && window.crypto.randomUUID) {
@@ -26,6 +34,8 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
   const [lookupLoading, setLookupLoading] = useState(false)
   const [lookupError, setLookupError] = useState('')
   const [amount, setAmount] = useState('')
+  const [transferNote, setTransferNote] = useState('')
+  const [step, setStep] = useState('input') // 'input' | 'review' | 'success'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successResult, setSuccessResult] = useState(null)
@@ -37,7 +47,9 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
         setSourceAccountId(String(accounts[0].id))
       }
       setAmount('')
+      setTransferNote('')
       setError('')
+      setStep('input')
       setSuccessResult(null)
       setRecipientAccountNumber('')
       setRecipientLookup(null)
@@ -47,6 +59,7 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
   }, [isOpen, accounts])
 
   const selectedSourceAccount = accounts.find((acc) => String(acc.id) === String(sourceAccountId))
+  const selectedDestAccount = accounts.find((acc) => String(acc.id) === String(destinationAccountId))
 
   async function handleVerifyRecipient(accountNumberToVerify) {
     const cleanNumber = (accountNumberToVerify || recipientAccountNumber).trim()
@@ -81,20 +94,17 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
     }
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
+  function validateInput() {
     setError('')
-    setSuccessResult(null)
-
     if (!sourceAccountId) {
       setError('Please select a source account.')
-      return
+      return false
     }
 
     const numAmount = Number(amount)
     if (!Number.isFinite(numAmount) || numAmount <= 0) {
       setError('Please enter a valid amount greater than zero.')
-      return
+      return false
     }
 
     if (action === 'Withdrawal' && selectedSourceAccount) {
@@ -102,7 +112,7 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
         setError(
           `Insufficient funds. Available balance is ₹ ${formatBalance(selectedSourceAccount.balance)}.`
         )
-        return
+        return false
       }
     }
 
@@ -110,20 +120,23 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
       if (transferMode === 'myAccounts') {
         if (!destinationAccountId) {
           setError('Please select a destination account.')
-          return
+          return false
         }
         if (destinationAccountId === sourceAccountId) {
           setError('Source and destination accounts must be different.')
-          return
+          return false
         }
       } else {
         if (!recipientAccountNumber.trim()) {
           setError('Please enter the recipient account number.')
-          return
+          return false
         }
-        if (selectedSourceAccount && selectedSourceAccount.accountNumber === recipientAccountNumber.trim()) {
+        if (
+          selectedSourceAccount &&
+          selectedSourceAccount.accountNumber === recipientAccountNumber.trim()
+        ) {
           setError('You cannot transfer money to the same source account.')
-          return
+          return false
         }
       }
 
@@ -131,9 +144,27 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
         setError(
           `Insufficient funds. Available balance is ₹ ${formatBalance(selectedSourceAccount.balance)}.`
         )
-        return
+        return false
       }
     }
+
+    return true
+  }
+
+  function handleProceedToReview(e) {
+    e.preventDefault()
+    if (validateInput()) {
+      if (action === 'Transfer') {
+        setStep('review')
+      } else {
+        executeTransaction()
+      }
+    }
+  }
+
+  async function executeTransaction() {
+    setError('')
+    const numAmount = Number(amount)
 
     const token = sessionStorage.getItem('ledgerline_access_token')
     if (!token) {
@@ -191,10 +222,13 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
       }
 
       setSuccessResult(data)
+      setStep('success')
       if (onSuccess) onSuccess()
     } catch (err) {
       console.error('Transaction error:', err)
-      setError(err.message || 'Unable to complete transaction. Please check your network connection.')
+      setError(
+        err.message || 'Unable to complete transaction. Please check your network connection.'
+      )
     } finally {
       setLoading(false)
     }
@@ -206,7 +240,9 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
       ? 'Credit funds directly into your LedgerLine account'
       : action === 'Withdrawal'
         ? 'Debit funds securely from your available account balance'
-        : 'Transfer funds instantly with double-entry ledger verification'
+        : step === 'review'
+          ? 'Review transfer summary and authorize settlement'
+          : 'Transfer funds instantly with double-entry ledger verification'
 
   return (
     <Modal
@@ -214,9 +250,10 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
       subtitle={modalSubtitle}
       isOpen={isOpen}
       onClose={onClose}
-      maxWidth="500px"
+      maxWidth="520px"
     >
-      {successResult ? (
+      {/* STEP: SUCCESS RECEIPT */}
+      {step === 'success' && successResult ? (
         <div className="money-success-card">
           <div className="success-icon-badge">
             <IconCheck className="w-8 h-8 text-emerald" />
@@ -232,6 +269,10 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
               <span className="receipt-value font-mono">#{successResult.id}</span>
             </div>
             <div className="receipt-row">
+              <span className="receipt-label">Type</span>
+              <span className="receipt-value font-bold">{action.toUpperCase()}</span>
+            </div>
+            <div className="receipt-row">
               <span className="receipt-label">Amount</span>
               <span className="receipt-value font-bold text-emerald">
                 ₹ {formatBalance(successResult.amount)}
@@ -243,28 +284,132 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
             </div>
             <div className="receipt-row">
               <span className="receipt-label">Reference ID</span>
-              <span className="receipt-value font-mono text-xs truncate" title={successResult.idempotencyKey}>
+              <span
+                className="receipt-value font-mono text-xs truncate"
+                title={successResult.idempotencyKey}
+              >
                 {successResult.idempotencyKey}
               </span>
             </div>
           </div>
 
-          <div className="modal-actions-single">
+          <div className="modal-actions-single mt-4">
             <button
               type="button"
               className="btn btn-primary w-full"
               onClick={onClose}
             >
-              Done
+              Done & Return to Dashboard
+            </button>
+          </div>
+        </div>
+      ) : step === 'review' && action === 'Transfer' ? (
+        /* STEP: TRANSFER REVIEW & CONFIRMATION */
+        <div className="transfer-review-container">
+          {error && (
+            <div className="form-alert error mb-4">
+              <IconAlertTriangle className="w-4 h-4" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="review-hero-card">
+            <span className="review-hero-label">TRANSFER TOTAL</span>
+            <span className="review-hero-amount">₹ {formatBalance(amount)}</span>
+            <span className="review-hero-sub">Settled instantly via Double-Entry Ledger</span>
+          </div>
+
+          <div className="review-breakdown-card">
+            <div className="review-item">
+              <span className="review-item-label">Source Account:</span>
+              <span className="review-item-value font-mono">
+                {selectedSourceAccount?.accountNumber}
+              </span>
+            </div>
+
+            <div className="review-item">
+              <span className="review-item-label">Recipient:</span>
+              <span className="review-item-value font-semibold">
+                {transferMode === 'recipientNumber'
+                  ? recipientLookup?.ownerDisplayName || recipientAccountNumber
+                  : selectedDestAccount?.accountNumber}
+              </span>
+            </div>
+
+            {transferMode === 'recipientNumber' && (
+              <div className="review-item">
+                <span className="review-item-label">Recipient Account:</span>
+                <span className="review-item-value font-mono">{recipientAccountNumber}</span>
+              </div>
+            )}
+
+            <div className="review-item">
+              <span className="review-item-label">Transfer Fee:</span>
+              <span className="review-item-value text-emerald font-semibold">₹ 0.00 (Free)</span>
+            </div>
+
+            {transferNote && (
+              <div className="review-item">
+                <span className="review-item-label">Payment Memo:</span>
+                <span className="review-item-value">{transferNote}</span>
+              </div>
+            )}
+
+            <div className="review-divider" />
+
+            <div className="review-item highlight">
+              <span className="review-item-label">Net Balance After Transfer:</span>
+              <span className="review-item-value font-mono font-bold">
+                ₹{' '}
+                {formatBalance(
+                  Number(selectedSourceAccount?.balance || 0) - Number(amount || 0)
+                )}
+              </span>
+            </div>
+          </div>
+
+          <div className="security-notice-badge mt-3">
+            <IconLock className="w-3.5 h-3.5 text-emerald inline mr-1" />
+            <span>End-to-End Encrypted • Spring Security + Idempotency Protection</span>
+          </div>
+
+          <div className="modal-footer-actions mt-4">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setStep('input')}
+              disabled={loading}
+            >
+              ← Back to Edit
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={executeTransaction}
+              disabled={loading}
+            >
+              {loading ? 'Authorizing Transfer...' : 'Confirm & Send Money'}
             </button>
           </div>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="money-form">
+        /* STEP: NORMAL INPUT FORM */
+        <form onSubmit={handleProceedToReview} className="money-form">
           {error && (
             <div className="form-alert error">
-              <span>✕</span>
+              <IconAlertTriangle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Sandbox Simulation Notice for Deposit */}
+          {action === 'Deposit' && (
+            <div className="sandbox-simulation-banner">
+              <span className="simulation-tag">SIMULATION GATEWAY</span>
+              <p className="simulation-text">
+                This is a sandbox environment. Deposits credit simulated test funds immediately to
+                your account for evaluation without charging external bank accounts.
+              </p>
             </div>
           )}
 
@@ -314,7 +459,7 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
 
               {transferMode === 'recipientNumber' ? (
                 <div className="form-group">
-                  <label htmlFor="recipient-acc-input">Recipient Account Number (LL...)</label>
+                  <label htmlFor="recipient-acc-input">Recipient Account Number</label>
                   <div className="input-with-action">
                     <input
                       id="recipient-acc-input"
@@ -349,11 +494,7 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
                     </div>
                   )}
 
-                  {lookupError && (
-                    <div className="field-error-hint">
-                      {lookupError}
-                    </div>
-                  )}
+                  {lookupError && <div className="field-error-hint">{lookupError}</div>}
                 </div>
               ) : (
                 <div className="form-group">
@@ -398,9 +539,24 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
             <span className="field-hint">Maximum 2 decimal places. Insured & protected.</span>
           </div>
 
+          {action === 'Transfer' && (
+            <div className="form-group">
+              <label htmlFor="transfer-note">Payment Memo / Note <span className="text-xs text-muted">(Optional)</span></label>
+              <input
+                id="transfer-note"
+                type="text"
+                placeholder="e.g. Monthly rent, Invoice #104"
+                value={transferNote}
+                onChange={(e) => setTransferNote(e.target.value)}
+                maxLength={60}
+                disabled={loading}
+              />
+            </div>
+          )}
+
           <div className="security-notice-badge">
             <IconShield className="w-3.5 h-3.5 text-emerald inline mr-1" />
-            <span>Instant Settlement • Bank-Grade Security</span>
+            <span>Instant Double-Entry Settlement • Bank-Grade Security</span>
           </div>
 
           <div className="modal-footer-actions">
@@ -417,14 +573,22 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
               className="btn btn-primary"
               disabled={loading || accounts.length === 0}
             >
-              {loading ? (
-                'Processing...'
-              ) : (
+              {action === 'Deposit' && (
                 <>
-                  {action === 'Deposit' && <IconDeposit className="w-4 h-4 mr-1 inline" />}
-                  {action === 'Withdrawal' && <IconWithdraw className="w-4 h-4 mr-1 inline" />}
-                  {action === 'Transfer' && <IconTransfer className="w-4 h-4 mr-1 inline" />}
-                  Confirm {action}
+                  <IconDeposit className="w-4 h-4 mr-1 inline" />
+                  Deposit Funds
+                </>
+              )}
+              {action === 'Withdrawal' && (
+                <>
+                  <IconWithdraw className="w-4 h-4 mr-1 inline" />
+                  Withdraw Funds
+                </>
+              )}
+              {action === 'Transfer' && (
+                <>
+                  <IconTransfer className="w-4 h-4 mr-1 inline" />
+                  Review Transfer →
                 </>
               )}
             </button>
@@ -434,4 +598,3 @@ export default function MoneyModal({ action, accounts, isOpen, onClose, onSucces
     </Modal>
   )
 }
-

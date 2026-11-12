@@ -7,10 +7,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.ledgerline.ledgerline.dto.ChangePasswordRequest;
 import com.ledgerline.ledgerline.dto.LoginRequest;
 import com.ledgerline.ledgerline.dto.LoginResponse;
 import com.ledgerline.ledgerline.dto.UserResponse;
@@ -26,6 +28,7 @@ public class AuthenticationService {
     private final CustomUserDetailsService userDetailsService;
     private final JwtService jwtService;
     private final AppUserRepository appUserRepository;
+    private final PasswordEncoder passwordEncoder;
     private final long expirationMinutes;
 
     public AuthenticationService(
@@ -33,6 +36,7 @@ public class AuthenticationService {
             CustomUserDetailsService userDetailsService,
             JwtService jwtService,
             AppUserRepository appUserRepository,
+            PasswordEncoder passwordEncoder,
             @Value("${app.jwt.expiration-minutes:15}")
             long expirationMinutes) {
 
@@ -40,6 +44,7 @@ public class AuthenticationService {
         this.userDetailsService = userDetailsService;
         this.jwtService = jwtService;
         this.appUserRepository = appUserRepository;
+        this.passwordEncoder = passwordEncoder;
         this.expirationMinutes = expirationMinutes;
     }
 
@@ -88,5 +93,36 @@ public class AuthenticationService {
                 ));
 
         return UserResponse.from(user);
+    }
+
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest request) {
+
+        String normalizedEmail = email
+                .trim()
+                .toLowerCase(Locale.ROOT);
+
+        AppUser user = appUserRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found"
+                ));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Current password is incorrect"
+            );
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "New password cannot be the same as the current password"
+            );
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        appUserRepository.save(user);
     }
 }

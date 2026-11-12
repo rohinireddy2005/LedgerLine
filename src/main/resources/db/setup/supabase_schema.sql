@@ -101,3 +101,4 @@ DROP TRIGGER IF EXISTS trg_prevent_ledger_modification ON public.ledger_entries;
 CREATE TRIGGER trg_prevent_ledger_modification
 BEFORE UPDATE OR DELETE ON public.ledger_entries
 FOR EACH ROW EXECUTE FUNCTION public.prevent_ledger_modification();
+

@@ -6,7 +6,8 @@ import {
   IconAccounts,
   IconTransactions,
   IconShield,
-  IconRefresh
+  IconRefresh,
+  IconDownload
 } from '../../components/Icons'
 
 function formatBalance(num) {
@@ -124,6 +125,49 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
     fetchTransactions(0)
   }, [fetchAccounts, fetchTransactions])
 
+  const handleExportAccountsCSV = () => {
+    if (accounts.length === 0) return
+    const headers = ['Account Number', 'Account ID', 'Owner Name', 'Owner Email', 'Status', 'Balance (INR)', 'Currency']
+    const rows = accounts.map((acc) => [
+      `"${acc.accountNumber}"`,
+      `"${acc.id}"`,
+      `"${acc.ownerName}"`,
+      `"${acc.ownerEmail}"`,
+      `"${acc.status}"`,
+      `"${acc.balance}"`,
+      `"${acc.currency || 'INR'}"`
+    ])
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+    const link = document.createElement('a')
+    link.href = encodeURI(csvContent)
+    link.download = `auditor_accounts_${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleExportTransactionsCSV = () => {
+    if (transactions.length === 0) return
+    const headers = ['Transaction ID', 'Date & Time', 'Initiator Name', 'Initiator Email', 'Type', 'Amount (INR)', 'Status', 'Idempotency Key']
+    const rows = transactions.map((tx) => [
+      `"${tx.transactionId}"`,
+      `"${formatDate(tx.createdAt)}"`,
+      `"${tx.initiatorName || ''}"`,
+      `"${tx.initiatorEmail || ''}"`,
+      `"${tx.type}"`,
+      `"${tx.amount}"`,
+      `"${tx.status}"`,
+      `"${tx.idempotencyKey || ''}"`
+    ])
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+    const link = document.createElement('a')
+    link.href = encodeURI(csvContent)
+    link.download = `auditor_transactions_${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="page-content-wrapper auditor-portal">
       {/* AUDITOR OVERVIEW */}
@@ -210,15 +254,27 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
                 Comprehensive audit view of all customer accounts in the institution.
               </p>
             </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => fetchAccounts(accountsPage)}
-              disabled={loading}
-            >
-              <IconRefresh className="w-4 h-4 mr-1" />
-              Refresh
-            </button>
+            <div className="page-actions-group">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleExportAccountsCSV}
+                disabled={accounts.length === 0}
+                title="Export registered accounts to CSV"
+              >
+                <IconDownload className="w-4 h-4 mr-1 inline-icon" />
+                Export CSV
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => fetchAccounts(accountsPage)}
+                disabled={loading}
+              >
+                <IconRefresh className="w-4 h-4 mr-1" />
+                Refresh
+              </button>
+            </div>
           </div>
 
           <div className="table-responsive-container">
@@ -304,15 +360,27 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
                 Live chronological feed of all deposits, withdrawals, and inter-account transfers.
               </p>
             </div>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => fetchTransactions(txPage)}
-              disabled={loading}
-            >
-              <IconRefresh className="w-4 h-4 mr-1" />
-              Refresh
-            </button>
+            <div className="page-actions-group">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleExportTransactionsCSV}
+                disabled={transactions.length === 0}
+                title="Export audited transactions to CSV"
+              >
+                <IconDownload className="w-4 h-4 mr-1 inline-icon" />
+                Export CSV
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => fetchTransactions(txPage)}
+                disabled={loading}
+              >
+                <IconRefresh className="w-4 h-4 mr-1" />
+                Refresh
+              </button>
+            </div>
           </div>
 
           <div className="table-responsive-container">

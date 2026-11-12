@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.ledgerline.ledgerline.dto.ChangePasswordRequest;
 import com.ledgerline.ledgerline.dto.LoginRequest;
 import com.ledgerline.ledgerline.dto.LoginResponse;
 import com.ledgerline.ledgerline.dto.RegisterRequest;
@@ -73,5 +74,25 @@ public class AuthController {
                 authenticationService.getUserProfile(authentication.getName());
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authentication is required"
+            );
+        }
+
+        authenticationService.changePassword(
+                authentication.getName(),
+                request
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

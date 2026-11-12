@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import API_BASE_URL from '../../config'
 import StatusBadge from '../../components/StatusBadge'
-import { IconShield, IconRefresh } from '../../components/Icons'
+import { IconShield, IconRefresh, IconDownload, IconPrinter } from '../../components/Icons'
 
 function formatBalance(num) {
   return Number(num || 0).toLocaleString('en-IN', {
@@ -27,6 +27,8 @@ export default function LedgerView({ accounts }) {
   const [selectedAccountId, setSelectedAccountId] = useState('')
   const [ledgerEntries, setLedgerEntries] = useState([])
   const [filterType, setFilterType] = useState('ALL')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -86,10 +88,25 @@ export default function LedgerView({ accounts }) {
 
   const filteredEntries = useMemo(() => {
     return ledgerEntries.filter((entry) => {
-      if (filterType === 'ALL') return true
-      return entry.entryType === filterType
+      if (filterType !== 'ALL' && entry.entryType !== filterType) return false
+
+      if (fromDate) {
+        const eDate = new Date(entry.createdAt)
+        const fDate = new Date(fromDate)
+        fDate.setHours(0, 0, 0, 0)
+        if (eDate < fDate) return false
+      }
+
+      if (toDate) {
+        const eDate = new Date(entry.createdAt)
+        const tDate = new Date(toDate)
+        tDate.setHours(23, 59, 59, 999)
+        if (eDate > tDate) return false
+      }
+
+      return true
     })
-  }, [ledgerEntries, filterType])
+  }, [ledgerEntries, filterType, fromDate, toDate])
 
   const { creditCount, debitCount, creditSum, debitSum } = useMemo(() => {
     let creditCount = 0
@@ -97,7 +114,7 @@ export default function LedgerView({ accounts }) {
     let creditSum = 0
     let debitSum = 0
 
-    ledgerEntries.forEach((e) => {
+    filteredEntries.forEach((e) => {
       const amt = Number(e.amount || 0)
       if (e.entryType === 'CREDIT') {
         creditCount++
@@ -109,10 +126,62 @@ export default function LedgerView({ accounts }) {
     })
 
     return { creditCount, debitCount, creditSum, debitSum }
-  }, [ledgerEntries])
+  }, [filteredEntries])
+
+  // Download Account Statement as CSV
+  const handleDownloadCSV = () => {
+    if (filteredEntries.length === 0 || !selectedAccount) return
+
+    const headers = [
+      'Entry ID',
+      'Transaction ID',
+      'Account Number',
+      'Entry Type',
+      'Amount (INR)',
+      'Balance After (INR)',
+      'Timestamp'
+    ]
+
+    const rows = filteredEntries.map((e) => [
+      `"${e.id}"`,
+      `"${e.transactionId}"`,
+      `"${selectedAccount.accountNumber}"`,
+      `"${e.entryType}"`,
+      `"${e.amount}"`,
+      `"${e.balanceAfter}"`,
+      `"${formatDate(e.createdAt)}"`
+    ])
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [
+        `# LedgerLine Official Account Statement`,
+        `# Account Number: ${selectedAccount.accountNumber}`,
+        `# Generated: ${new Date().toLocaleString()}`,
+        `# Current Balance: INR ${selectedAccount.balance}`,
+        headers.join(','),
+        ...rows.map((r) => r.join(','))
+      ].join('\n')
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute(
+      'download',
+      `statement_${selectedAccount.accountNumber}_${new Date().toISOString().slice(0, 10)}.csv`
+    )
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // Print Statement using Browser Print Engine
+  const handlePrintStatement = () => {
+    window.print()
+  }
 
   return (
-    <div className="page-content-wrapper">
+    <div className="page-content-wrapper printable-statement-area">
       <div className="page-title-bar">
         <div>
           <h2 className="page-main-heading">Account Statement & Ledger</h2>
@@ -121,14 +190,32 @@ export default function LedgerView({ accounts }) {
           </p>
         </div>
 
-        <div className="ledger-immutability-pill">
-          <IconShield className="w-4 h-4 text-emerald" />
-          <span>Verified Audit Trail</span>
+        <div className="page-actions-group no-print">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleDownloadCSV}
+            disabled={filteredEntries.length === 0}
+            title="Download account statement as CSV"
+          >
+            <IconDownload className="w-4 h-4 inline-icon mr-1" />
+            Download Statement (CSV)
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handlePrintStatement}
+            disabled={filteredEntries.length === 0}
+            title="Print or save as PDF"
+          >
+            <IconPrinter className="w-4 h-4 inline-icon mr-1" />
+            Print / Save PDF
+          </button>
         </div>
       </div>
 
       {/* Account Selector Strip */}
-      <div className="account-selector-strip">
+      <div className="account-selector-strip no-print">
         <label htmlFor="ledger-acc-picker">Selected Account:</label>
         <select
           id="ledger-acc-picker"
@@ -145,12 +232,35 @@ export default function LedgerView({ accounts }) {
         </select>
       </div>
 
+      {/* Printable Statement Header (Visible only in print) */}
+      <div className="print-statement-header print-only">
+        <div className="print-brand-row">
+          <h1 className="print-brand-name">LedgerLine Digital Banking</h1>
+          <span className="print-doc-badge">OFFICIAL ACCOUNT STATEMENT</span>
+        </div>
+        <div className="print-details-grid">
+          <div>
+            <strong>Account Number:</strong> {selectedAccount?.accountNumber}
+          </div>
+          <div>
+            <strong>Statement Date:</strong> {new Date().toLocaleDateString('en-IN')}
+          </div>
+          <div>
+            <strong>Account Status:</strong> {selectedAccount?.status}
+          </div>
+          <div>
+            <strong>Current Balance:</strong> ₹ {formatBalance(selectedAccount?.balance)} INR
+          </div>
+        </div>
+        <hr className="print-hr" />
+      </div>
+
       {/* Ledger Metrics Cards */}
       <div className="ledger-metrics-grid">
         <div className="ledger-metric-card">
-          <span className="ledger-metric-label">TOTAL ENTRIES</span>
-          <span className="ledger-metric-num font-mono">{ledgerEntries.length}</span>
-          <span className="ledger-metric-hint">Historical entries</span>
+          <span className="ledger-metric-label">STATEMENT ENTRIES</span>
+          <span className="ledger-metric-num font-mono">{filteredEntries.length}</span>
+          <span className="ledger-metric-hint">Filtered ledger events</span>
         </div>
 
         <div className="ledger-metric-card">
@@ -178,20 +288,53 @@ export default function LedgerView({ accounts }) {
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="table-controls-card">
-        <div className="filter-group">
-          <span className="filter-label">Entry Type:</span>
-          {['ALL', 'CREDIT', 'DEBIT'].map((type) => (
-            <button
-              key={type}
-              type="button"
-              className={`filter-pill-btn ${filterType === type ? 'active' : ''}`}
-              onClick={() => setFilterType(type)}
-            >
-              {type === 'ALL' ? 'All Entries' : type}
-            </button>
-          ))}
+      {/* Filter Tabs and Date Range */}
+      <div className="table-controls-card no-print">
+        <div className="controls-row-top">
+          <div className="filter-group">
+            <span className="filter-label">Entry Type:</span>
+            {['ALL', 'CREDIT', 'DEBIT'].map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={`filter-pill-btn ${filterType === type ? 'active' : ''}`}
+                onClick={() => setFilterType(type)}
+              >
+                {type === 'ALL' ? 'All Entries' : type}
+              </button>
+            ))}
+          </div>
+
+          <div className="date-range-filter">
+            <span className="filter-label">Statement Period:</span>
+            <input
+              type="date"
+              className="date-input"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              title="From Date"
+            />
+            <span className="date-sep">to</span>
+            <input
+              type="date"
+              className="date-input"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              title="To Date"
+            />
+            {(fromDate || toDate) && (
+              <button
+                type="button"
+                className="btn-ghost text-xs"
+                onClick={() => {
+                  setFromDate('')
+                  setToDate('')
+                }}
+              >
+                Clear Period
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -208,7 +351,7 @@ export default function LedgerView({ accounts }) {
         </div>
       ) : filteredEntries.length === 0 ? (
         <div className="empty-state-card">
-          <p className="muted">No ledger entries recorded for this account yet.</p>
+          <p className="muted">No ledger entries recorded for this account period.</p>
         </div>
       ) : (
         <div className="table-responsive-container">
@@ -266,4 +409,3 @@ export default function LedgerView({ accounts }) {
     </div>
   )
 }
-

@@ -3,6 +3,7 @@ import API_BASE_URL from './config'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import Toast from './components/Toast'
+import ProfileModal from './components/ProfileModal'
 import Auth from './portals/auth/Auth'
 import AccountHolderDashboard from './portals/accountHolder/AccountHolderDashboard'
 import MyAccountsView from './portals/accountHolder/MyAccountsView'
@@ -31,6 +32,9 @@ export default function App() {
 
   // Money Modal Action
   const [activeMoneyAction, setActiveMoneyAction] = useState('') // 'Deposit', 'Withdrawal', 'Transfer'
+
+  // User Profile & Security Modal
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
 
   // Toast System
   const [toast, setToast] = useState(null)
@@ -243,6 +247,7 @@ export default function App() {
           role={role}
           onLogout={handleLogout}
           onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+          onOpenProfile={() => setIsProfileModalOpen(true)}
         />
 
         <main className="main-viewport">
@@ -314,6 +319,17 @@ export default function App() {
               onNavigateTab={setActiveTab}
             />
           )}
+
+          {/* User Profile & Security Modal (All Roles) */}
+          <ProfileModal
+            user={user}
+            role={role}
+            isOpen={isProfileModalOpen}
+            onClose={() => setIsProfileModalOpen(false)}
+            onPasswordChanged={() => {
+              showToast('Password changed successfully! Keep it secure.', 'success')
+            }}
+          />
         </main>
 
         <footer className="portal-footer">
