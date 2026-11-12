@@ -574,4 +574,61 @@ when(transactionRepository.findByInitiatorIdAndIdempotencyKey(
                 exception.getStatusCode()
         );
     }
+
+    @Test
+    void transferWithDestinationAccountNumberShouldSucceed() {
+
+        String key = "transfer-by-number-001";
+        TransferRequest request = new TransferRequest();
+        request.setSourceAccountId(sourceAccountId);
+        request.setDestinationAccountNumber("LL999999999999");
+        request.setAmount(new BigDecimal("75.00"));
+
+        sourceAccount.setBalance(new BigDecimal("500.00"));
+        destinationAccount.setBalance(new BigDecimal("200.00"));
+
+        when(accountRepository.findByAccountNumber("LL999999999999"))
+                .thenReturn(Optional.of(destinationAccount));
+
+        when(appUserRepository.findByIdForUpdate(userId))
+                .thenReturn(Optional.of(user));
+
+        when(transactionRepository.findByInitiatorIdAndIdempotencyKey(userId, key))
+                .thenReturn(Optional.empty());
+
+        when(transactionRepository.saveAndFlush(any(MoneyTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        when(accountRepository.findByIdForUpdate(sourceAccountId))
+                .thenReturn(Optional.of(sourceAccount));
+
+        when(accountRepository.findByIdForUpdate(destinationAccountId))
+                .thenReturn(Optional.of(destinationAccount));
+
+        var response = moneyTransactionService.transfer(userId, request, key);
+
+        assertEquals(TransactionStatus.SUCCESS, response.status());
+        assertEquals(new BigDecimal("425.00"), sourceAccount.getBalance());
+        assertEquals(new BigDecimal("275.00"), destinationAccount.getBalance());
+    }
+
+    @Test
+    void transferWithUnknownDestinationAccountNumberThrowsNotFound() {
+
+        String key = "transfer-unknown-number-001";
+        TransferRequest request = new TransferRequest();
+        request.setSourceAccountId(sourceAccountId);
+        request.setDestinationAccountNumber("LL000000000000");
+        request.setAmount(new BigDecimal("50.00"));
+
+        when(accountRepository.findByAccountNumber("LL000000000000"))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> moneyTransactionService.transfer(userId, request, key)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
 }

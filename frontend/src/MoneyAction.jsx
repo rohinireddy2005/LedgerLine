@@ -129,7 +129,7 @@ function MoneyAction({ action, accounts, onClose, onSuccess }) {
       if (result?.status === 'REJECTED') {
         setMessage(
           result?.rejectionReason ||
-          'The transaction was rejected by the backend.'
+          'The transaction was rejected by banking policy.'
         )
         return
       }
@@ -146,7 +146,7 @@ function MoneyAction({ action, accounts, onClose, onSuccess }) {
       }
     } catch {
       setMessage(
-        'Could not connect to the backend. Check that the backend is running and CORS is configured.'
+        'Could not connect to banking service. Please check your network connection.'
       )
     } finally {
       setIsSubmitting(false)
@@ -243,7 +243,7 @@ function MoneyAction({ action, accounts, onClose, onSuccess }) {
           />
 
           <p className="demo-warning">
-            Transactions are processed by the LedgerLine backend.
+            All transactions are securely processed with real-time settlement.
           </p>
 
           <button

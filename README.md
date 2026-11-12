@@ -34,53 +34,55 @@ The application includes a React frontend and a Java Spring Boot backend. It foc
 ### Authentication and Authorization
 
 - User registration and login.
-- BCrypt password hashing.
-- JWT-based stateless authentication.
-- Role-based access for `ACCOUNT_HOLDER`, `ADMIN`, and `AUDITOR`.
-- Registration assigns the `ACCOUNT_HOLDER` role.
-- Protected endpoints reject unauthenticated requests.
-- JWT validation checks the token subject and expiration.
-- Privileged ADMIN and AUDITOR accounts are provisioned through environment configuration.
+- Current authenticated user profile endpoint (`GET /api/auth/me`).
+- BCrypt password hashing (strength 12).
+- JWT-based stateless authentication with strict expiration and subject verification.
+- Enriched login response returning user identity (`id`, `fullName`, `email`, `role`).
+- Role-based access control for `ACCOUNT_HOLDER`, `ADMIN`, and `AUDITOR`.
+- Registration assigns the `ACCOUNT_HOLDER` role exclusively.
+- Protected endpoints reject unauthenticated requests with HTTP 401.
+- Privileged ADMIN and AUDITOR accounts provisioned through secure environment configuration.
 
 ### Account Management
 
-- Create and view accounts.
-- Server-generated account numbers.
-- Account ownership verification.
-- Account status management.
-- Admin operations to freeze, unfreeze, and close accounts.
-- Account status audit history.
+- Create and view accounts with live balance calculation.
+- Server-generated account numbers (`LL...`).
+- Real-time recipient account number lookup (`GET /api/accounts/lookup/{accountNumber}`) with privacy masking (e.g. `Rohini R.`).
+- Strict account ownership verification.
+- Account status lifecycle management (`ACTIVE`, `FROZEN`, `CLOSED`).
+- Admin operations to freeze, unfreeze, and close accounts with mandatory reason tracking.
+- Account status audit history and immutable event recording.
 
 ### Financial Transactions
 
 - Deposit, withdrawal, and transfer operations.
-- Positive amount and balance validation.
-- Insufficient balance protection.
-- Account ownership checks.
-- Currency compatibility checks for transfers.
-- Idempotency key validation and duplicate request handling.
-- Database locking for critical transaction operations.
-- Consistent account lock ordering for transfers.
-- Ledger entries for successful money movements.
+- Inter-account transfers supporting recipient account numbers (`LL...`) as well as internal IDs.
+- User transaction history endpoint (`GET /api/transactions`) aggregating operations across all owned accounts.
+- Positive amount and sufficient balance validation.
+- Currency compatibility verification for transfers.
+- Unique idempotency key enforcement per user preventing duplicate processing.
+- PostgreSQL advisory and pessimistic locking preventing concurrent race conditions.
+- Deterministic account lock ordering (`min(sourceId, destId)` then `max(sourceId, destId)`) preventing deadlocks.
+- Automatic double-entry ledger records for every successful financial movement.
 
 ### Ledger and Audit
 
-- Chronological account ledger.
-- Append-only ledger protections.
-- Database triggers preventing ordinary ledger and account status audit record modification.
-- Auditor-only transaction, account, and ledger reporting.
-- Admin account reconciliation reports.
+- Chronological account ledger with running balance verification.
+- Strict append-only ledger protections.
+- PostgreSQL database triggers preventing modification or deletion of ledger entries and status audit records.
+- Auditor-only reporting: global account register, system-wide transaction feed, and account ledger inspector.
+- Administrative account reconciliation reports comparing live balance against double-entry ledger sums (`/api/admin/accounts/{id}/reconciliation`).
 
-### Frontend
+### Frontend Digital Banking Experience
 
-- User registration and login.
-- JWT-based authenticated access.
-- Account overview using live backend data.
-- Account creation and account listing.
-- Deposit, withdrawal, and transfer interfaces.
-- Transaction history and filtering.
-- Account ledger with debit and credit entries.
-- Logout and protected frontend access.
+- Modern, professional digital banking design inspired by Revolut and Stripe fintech interfaces.
+- Deep navy, royal blue, emerald green (credits), crimson (debits), and amber (frozen states) color palette.
+- Role-based multi-portal routing:
+  - **Account Holder Portal**: Personalized welcome dashboard, account summary deck, quick action strip (Deposit, Withdraw, Transfer), real-time recipient verification modal with receipt card, searchable transaction history, and double-entry ledger inspector.
+  - **Administrator Portal**: System overview, account lifecycle controls (freeze/unfreeze/close with mandatory reason modals), automated reconciliation dashboard with visual status verdicts, user registry, and status audit log.
+  - **Auditor Portal**: Strict read-only audit interface with global account directory, system-wide transaction ledger, and individual account ledger inspector.
+- Reusable component architecture: accessible Modals, Toast notification manager, StatusBadges, inline SVG iconography, and responsive Sidebar with collapsible mobile navigation drawer.
+- Verified responsive across 1440px (desktop), 1024px (laptop), 768px (tablet), and 375px (mobile).
 
 The frontend communicates with the backend through REST APIs.
 
@@ -231,6 +233,35 @@ Keep both the backend and frontend servers running while using the local applica
 
 The backend CORS configuration currently allows the local frontend origin `http://localhost:5173`. Update the allowed origin before deploying the frontend to a different domain.
 
+## Cloud Deployment (Render & Supabase)
+
+LedgerLine is cloud-ready and configured for deployment with **Render** (Backend Web Service + Frontend Static Site) and **Supabase** (Managed PostgreSQL with connection pooler).
+
+### 1. Database Provisioning (Supabase)
+
+LedgerLine includes a complete schema script with all tables, constraints, functions, and immutability triggers:
+
+- Schema file: `src/main/resources/db/setup/supabase_schema.sql`
+
+To connect to Supabase:
+- **JDBC URL**: `jdbc:postgresql://aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require`
+- **Username**: `postgres.bxpcwztjhebcbwqmxxjg`
+- **Password**: `DB_PASSWORD` environment variable
+
+### 2. Render One-Click Blueprint Deployment
+
+A `render.yaml` specification is provided in the repository root.
+
+To deploy on Render:
+1. Push your repository to GitHub.
+2. In the Render Dashboard, click **New +** -> **Blueprint**.
+3. Select your GitHub repository (`rohinireddy2005/LedgerLine`).
+4. Render will detect `render.yaml` and configure:
+   - **`ledgerline-backend`** (Docker Web Service)
+   - **`ledgerline-frontend`** (Static Site with SPA rewrite rules)
+5. Provide the secret environment variables (`DB_PASSWORD`, `JWT_SECRET`, and optional admin passwords) when prompted.
+6. Click **Apply**.
+
 ## Build the Frontend
 
 From the frontend directory:
@@ -253,12 +284,12 @@ Additional frontend verification:
 
 | Area | Endpoint examples | Access |
 |---|---|---|
-| Authentication | `/api/auth/register`, `/api/auth/login` | Public |
+| Authentication | `/api/auth/register`, `/api/auth/login`, `/api/auth/me` | Public / Authenticated |
 | Health | `/api/health` | Public |
-| Accounts | `/api/accounts` | ACCOUNT_HOLDER |
-| Transactions | `/api/transactions` | ACCOUNT_HOLDER |
-| Administration | `/api/admin/**` | ADMIN |
-| Audit reporting | `/api/auditor/**` | AUDITOR |
+| Accounts | `/api/accounts`, `/api/accounts/lookup/{accountNumber}` | ACCOUNT_HOLDER |
+| Transactions | `/api/transactions`, `/api/transactions/deposits`, `/api/transactions/withdrawals`, `/api/transactions/transfers` | ACCOUNT_HOLDER |
+| Administration | `/api/admin/accounts`, `/api/admin/accounts/{id}/freeze`, `/api/admin/accounts/{id}/reconciliation`, `/api/admin/users`, `/api/admin/audits` | ADMIN |
+| Audit reporting | `/api/auditor/accounts`, `/api/auditor/transactions`, `/api/auditor/accounts/{id}/ledger` | AUDITOR |
 
 Protected endpoints require a valid JWT bearer token.
 
@@ -282,12 +313,12 @@ mvn clean test
 
 ### Latest Verified Regression Test Result
 
-- Tests run: 83
+- Tests run: 88
 - Failures: 0
 - Errors: 0
 - Skipped: 0
 - Build: SUCCESS
-- Verification date: November 11, 2026
+- Verification date: November 12, 2026
 
 PostgreSQL-backed integration tests include successful transfers and simultaneous opposite-direction transfers. These tests verify the tested scenarios; they are not a substitute for large-scale concurrency stress testing.
 

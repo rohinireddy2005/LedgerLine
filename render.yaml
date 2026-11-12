@@ -1,0 +1,55 @@
+services:
+  # ============================================================================
+  # 1. Backend Web Service (Spring Boot 4 on Java 21)
+  # ============================================================================
+  - type: web
+    name: ledgerline-backend
+    runtime: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DB_URL
+        value: jdbc:postgresql://aws-1-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require
+      - key: DB_USERNAME
+        value: postgres.bxpcwztjhebcbwqmxxjg
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        value: "*"
+      - key: LEDGERLINE_ADMIN_NAME
+        value: Snovasys Administrator
+      - key: LEDGERLINE_ADMIN_EMAIL
+        value: admin@ledgerline.local
+      - key: LEDGERLINE_ADMIN_PASSWORD
+        sync: false
+      - key: LEDGERLINE_AUDITOR_NAME
+        value: LedgerLine Auditor
+      - key: LEDGERLINE_AUDITOR_EMAIL
+        value: auditor@ledgerline.local
+      - key: LEDGERLINE_AUDITOR_PASSWORD
+        sync: false
+
+  # ============================================================================
+  # 2. Frontend Static Site (React 19 + Vite)
+  # ============================================================================
+  - type: static
+    name: ledgerline-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    plan: free
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: ledgerline-backend
+          property: url

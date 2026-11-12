@@ -518,6 +518,34 @@ These checks were performed in the local development environment. Deployed-envir
 
 The current CORS configuration permits the local frontend origin `http://localhost:5173`. The allowed origin must be updated to the actual frontend hosting origin before deployment. Production cross-origin access has not yet been verified.
 
+### Threat 15 - Recipient Enumeration and PII Disclosure in Inter-Account Transfers
+
+**Risk:** Attackers may attempt to probe account numbers via lookup APIs to harvest customer names, email addresses, or balance information.
+
+**Mitigations:**
+
+- Require `ROLE_ACCOUNT_HOLDER` authentication for account lookup endpoints (`/api/accounts/lookup/{accountNumber}`).
+- Return a minimal `AccountLookupResponse` DTO containing only `accountNumber`, `currency`, `status`, and masked `ownerDisplayName`.
+- Never expose recipient email, user ID, internal database account ID, or account balance in lookup responses.
+- Implement server-side name masking (e.g., "Rohini R." for "Rohini Rao", or single names with masked trailing initials) to confirm payment destination without leaking full PII.
+- Only return confirmation for valid active or frozen accounts, preventing transfer routing errors before execution.
+
+**Implementation status:** Implemented and tested in `AccountServiceTest` (`lookupAccountByNumberReturnsMaskedNameAndDetails`, `lookupNonexistentAccountReturnsNotFound`). Unauthenticated access is rejected with HTTP 401.
+
+### Threat 16 - Deadlocks and Race Conditions During Account-Number Transfer Resolution
+
+**Risk:** Resolving recipient accounts by alphanumeric account number (`LL...`) instead of numeric IDs might bypass the deterministic lock ordering protocol, leading to PostgreSQL deadlocks or concurrency vulnerabilities under simultaneous transfers.
+
+**Mitigations:**
+
+- Resolve `destinationAccountNumber` to internal `destinationId` in the service layer prior to acquiring pessimistic write locks.
+- Maintain strict deterministic locking order (`min(sourceId, destId)` locked before `max(sourceId, destId)`).
+- Acquire user-level advisory transaction locks prior to executing balance updates.
+- Ensure transfer idempotency keys are checked before any balance or ledger mutation occurs.
+- Verify identical behavior whether transfer is requested via `destinationAccountId` or `destinationAccountNumber`.
+
+**Implementation status:** Implemented and tested in `MoneyTransactionServiceTest` (`transferWithDestinationAccountNumberShouldSucceed`, `transferWithUnknownDestinationAccountNumberThrowsNotFound`). The complete PostgreSQL-backed integration test suite verified deterministic locking and simultaneous transfers.
+
 ### Remaining work
 
 The following areas require further work:
@@ -537,18 +565,20 @@ Unimplemented or unverified controls remain pending until implementation and ver
 
 The threat model must be updated as the application evolves. No security control should be described as complete solely because it is listed as a mitigation.
 
-### Latest verified automated test baseline (2026-11-11)
+### Latest verified automated test baseline (2026-11-12)
 
-- Tests run: 83
+- Tests run: 88
 - Failures: 0
 - Errors: 0
 - Skipped: 0
 - Maven result: BUILD SUCCESS
 - Command: `mvn clean test`
-- Completion time: 17:20 IST
+- Verification time: 15:13 IST
+- Frontend lint: 0 errors, 0 warnings (`npm run lint`)
+- Frontend build: SUCCESS (`npm run build`)
 
-The complete test suite passed on November 11, 2026.
+The complete test suite passed on November 12, 2026.
 
-The suite includes service-level tests, API-level security tests, PostgreSQL integration tests, role authorization tests, registration security tests, auditor reporting tests, privileged account initialization tests, and administrative reconciliation tests.
+The suite includes service-level tests, API-level security tests, PostgreSQL integration tests, role authorization tests, registration security tests, auditor reporting tests, privileged account initialization tests, administrative reconciliation tests, recipient account lookup tests, and account-number transfer tests.
 
 Passing tests demonstrate the behavior covered by those tests. They do not establish that every possible threat has been eliminated.

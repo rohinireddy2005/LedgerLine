@@ -61,7 +61,7 @@ function Ledger() {
         }
 
         if (!Array.isArray(data)) {
-          throw new Error('Unexpected account response from backend.')
+          throw new Error('Unexpected account response from banking service.')
         }
 
         setAccounts(data)
@@ -121,7 +121,7 @@ function Ledger() {
         }
 
         if (!Array.isArray(data)) {
-          throw new Error('Unexpected ledger response from backend.')
+          throw new Error('Unexpected statement response from banking service.')
         }
 
         setEntries(data)
@@ -296,9 +296,9 @@ function Ledger() {
       )}
 
       <div className="ledger-note">
-        <strong>Ledger integrity:</strong>
+        <strong>Certified Statement:</strong>
         <p>
-          These entries are retrieved directly from the LedgerLine backend.
+          These records reflect verified entries from the central banking system.
           Each entry records the transaction, account, debit or credit amount,
           and resulting account balance.
         </p>

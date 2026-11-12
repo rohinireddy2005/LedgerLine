@@ -1,4 +1,4 @@
-﻿# LedgerLine - AI Development Prompt Log
+# LedgerLine - AI Development Prompt Log
 
 **Project:** LedgerLine
 
@@ -612,25 +612,82 @@ The frontend build and manual local workflows were also verified. These checks d
 
 No commit reference assigned. These changes were locally implemented and tested; they must not be represented as committed until an actual Git commit is created.
 
+## Entry 20 - Account Holder Lookups, Recipient Transfers, Current User Profile, and Modern Digital Banking Redesign
+
+**Date:** 2026-11-12
+
+**What was asked:**
+
+Complete remaining development and perform a comprehensive professional UI redesign for LedgerLine for the Snovasys Fresher Hiring Challenge 2026:
+1. Implement `GET /api/auth/me` to retrieve authenticated user identity (`id`, `fullName`, `email`, `role`) and enrich `LoginResponse`.
+2. Support inter-account transfers using recipient account number (`LL...`) as well as internal account IDs without weakening deterministic lock ordering or idempotency.
+3. Provide recipient account lookup with real-time verification and privacy masking.
+4. Provide a dedicated user transaction history API (`GET /api/transactions`) across all accounts owned by the user.
+5. Completely redesign the frontend into a modern, responsive digital banking web application inspired by Revolut and Stripe:
+   - Separate, dedicated role portals: Account Holder, Administrator, and Auditor.
+   - Account Holder: Dashboard metrics, quick actions, account cards deck, transfers with live recipient verification, interactive transaction filters, and full double-entry ledger explorer.
+   - Administrator: Account lifecycle management (Freeze, Unfreeze, Close with mandatory reason modals), automated reconciliation dashboard with visual status verdicts, user directory, and status audits log.
+   - Auditor: Strict read-only audit interface with global account directory, system-wide transaction feed, and individual account ledger inspector.
+6. Verify backend tests (`mvn test`), frontend linting (`npm run lint`), and production build (`npm run build`).
+
+**Tool output:**
+
+Guidance for implementing the new endpoints, DTOs, service-layer resolution, privacy masking, responsive React components, CSS design tokens, and running automated verification suites.
+
+**What was wrong:**
+
+The application previously lacked a standard `/api/auth/me` profile endpoint, requiring client sessions to parse JWT claims or retain stale state. Transfers previously required knowing internal numeric database IDs (`destinationAccountId`), which was not realistic for digital banking and risked usability errors. The frontend UI was basic, lacked clear visual hierarchy, lacked role-based portal separation for Admin and Auditor workflows, and lacked confirmation modals or recipient verification.
+
+**What was done instead:**
+
+Backend implementations:
+- Created `AccountLookupResponse` DTO and added `GET /api/accounts/lookup/{accountNumber}` in `AccountController` and `AccountService`. Returns account number, currency, status, and server-masked owner display name (e.g. `Rohini R.`), protecting customer privacy while enabling transfer verification.
+- Added authenticated `GET /api/auth/me` endpoint in `AuthController` and `AuthenticationService` returning current user profile (`id`, `fullName`, `email`, `role`).
+- Enriched `LoginResponse` DTO to include `UserResponse` with backward-compatible constructor.
+- Enhanced `TransferRequest` with `destinationAccountNumber` (keeping `destinationAccountId` optional for backward compatibility).
+- In `MoneyTransactionService.transfer()`, resolved `destinationAccountNumber` to internal `destinationId` upfront, preserving existing deterministic lock ordering (`min(sourceId, destId)` locked before `max(sourceId, destId)`) and advisory lock protections.
+- Added `GET /api/transactions` endpoint in `MoneyTransactionController` and `MoneyTransactionRepository` returning user-wide transaction records across all owned accounts.
+- Added unit and security tests in `AccountServiceTest`, `MoneyTransactionServiceTest`, and `SecurityConfigTest`.
+
+Frontend implementations:
+- Created modular, reusable component library: `Icons.jsx` (lightweight inline SVG icons), `StatusBadge.jsx`, `Modal.jsx` (accessible dialogs with escape/backdrop controls), `Toast.jsx`, `Navbar.jsx`, and `Sidebar.jsx` (desktop sidebar and mobile collapsible drawer).
+- Rebuilt `Auth.jsx` with banking hero branding, secure login, registration, and quick role presets.
+- Implemented `MoneyModal.jsx` for Deposit, Withdraw, and Transfer with real-time recipient account number lookup, debounced debits, validation, and professional transaction receipt summary.
+- Implemented `AccountHolderDashboard.jsx`, `MyAccountsView.jsx`, `TransactionsView.jsx`, and `LedgerView.jsx`.
+- Implemented `AdminPortal.jsx` with account controls (freeze/unfreeze/close with mandatory reason tracking), automated balance reconciliation dashboard, user directory, and status audit log.
+- Implemented `AuditorPortal.jsx` with strict read-only access to global accounts, system-wide transactions, and account ledger.
+- Redesigned `index.css` and `App.css` using modern CSS variables, deep navy (`#0f172a`), royal blue (`#2563eb`), emerald (`#10b981`), crimson (`#ef4444`), subtle shadows, rounded cards, and responsive media queries (1440px, 1024px, 768px, 480px).
+
+Verification results:
+- Backend: `mvn test` executed 88 tests: 0 failures, 0 errors, 0 skipped. BUILD SUCCESS.
+- Frontend: `npm run lint` executed with 0 errors, 0 warnings.
+- Frontend: `npm run build` completed successfully, producing production bundle in `dist/`.
+
+**Commit reference:**
+
+No commit reference assigned. These changes were locally implemented and tested; they must not be represented as committed until an actual Git commit is created.
+
 ---
 
 ## Development Note
 
 Test counts and commit references represent the state at the time each entry was recorded. Pending work and uncommitted milestones are identified explicitly rather than presented as completed or committed.
 
-## Latest Verified Automated Test Result (2026-11-11)
+## Latest Verified Automated Test Result (2026-11-12)
 
-- Tests run: 83
+- Tests run: 88
 - Failures: 0
 - Errors: 0
 - Skipped: 0
 - Maven result: BUILD SUCCESS
 - Command: `mvn clean test`
-- Verification time: November 11, 2026, 17:20 IST
+- Verification time: November 12, 2026, 15:13 IST
+- Frontend lint: Passed with 0 errors, 0 warnings (`npm run lint`)
+- Frontend production build: SUCCESS (`npm run build`)
 
-The result was obtained after the latest JWT validation, PostgreSQL advisory locking, security testing, and concurrent transfer integration testing changes.
+The result was obtained after the latest current-user profile endpoint, recipient account lookup, account-number transfer resolution, and complete digital banking UI redesign.
 
-The complete suite includes service-level tests, API-level security tests, PostgreSQL integration tests, role authorization tests, registration security tests, auditor reporting tests, privileged account initialization tests, and administrative reconciliation tests.
+The complete suite includes service-level tests, API-level security tests, PostgreSQL integration tests, role authorization tests, registration security tests, auditor reporting tests, privileged account initialization tests, administrative reconciliation tests, recipient lookup tests, and transfer resolution tests.
 
 All AI-generated suggestions and code are subject to developer review, modification, and testing. Passing tests establish only the behavior covered by those tests; they do not guarantee the absence of all security vulnerabilities.
 

@@ -1,4 +1,3 @@
-
 package com.ledgerline.ledgerline.dto;
 
 import java.math.BigDecimal;
@@ -14,9 +13,10 @@ public class TransferRequest {
     @Positive(message = "Source account ID must be positive")
     private Long sourceAccountId;
 
-    @NotNull(message = "Destination account ID is required")
     @Positive(message = "Destination account ID must be positive")
     private Long destinationAccountId;
+
+    private String destinationAccountNumber;
 
     @NotNull(message = "Amount is required")
     @DecimalMin(value = "0.01", message = "Amount must be greater than zero")
@@ -41,6 +41,14 @@ public class TransferRequest {
 
     public void setDestinationAccountId(Long destinationAccountId) {
         this.destinationAccountId = destinationAccountId;
+    }
+
+    public String getDestinationAccountNumber() {
+        return destinationAccountNumber;
+    }
+
+    public void setDestinationAccountNumber(String destinationAccountNumber) {
+        this.destinationAccountNumber = destinationAccountNumber;
     }
 
     public BigDecimal getAmount() {

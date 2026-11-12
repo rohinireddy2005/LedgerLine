@@ -1,4 +1,3 @@
-
 package com.ledgerline.ledgerline.controller;
 
 import java.util.List;
@@ -11,11 +10,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.ledgerline.ledgerline.dto.AccountLookupResponse;
 import com.ledgerline.ledgerline.dto.AccountResponse;
-import com.ledgerline.ledgerline.service.AccountService;
-import com.ledgerline.ledgerline.repository.AppUserRepository;
 import com.ledgerline.ledgerline.entity.AppUser;
+import com.ledgerline.ledgerline.repository.AppUserRepository;
+import com.ledgerline.ledgerline.service.AccountService;
 
 @RestController
 @RequestMapping("/api/accounts")
@@ -69,18 +70,33 @@ public class AccountController {
         );
     }
 
+    @GetMapping("/lookup/{accountNumber}")
+    public ResponseEntity<AccountLookupResponse> lookupAccount(
+            @PathVariable String accountNumber) {
+
+        return ResponseEntity.ok(
+                accountService.lookupAccount(accountNumber)
+        );
+    }
+
     private Long getAuthenticatedUserId(
             Authentication authentication) {
+
+        if (authentication == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authentication is required"
+            );
+        }
 
         String email = authentication.getName();
 
         AppUser user = appUserRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new org.springframework.web.server
-                                .ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Authenticated user not found"
-                                )
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Authenticated user not found"
+                        )
                 );
 
         return user.getId();

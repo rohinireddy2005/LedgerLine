@@ -230,8 +230,26 @@ public class MoneyTransactionService {
 
         validateRequest(request.getAmount(), idempotencyKey);
 
-        if (request.getSourceAccountId().equals(
-                request.getDestinationAccountId())) {
+        Long destinationId = request.getDestinationAccountId();
+        if (destinationId == null) {
+            if (request.getDestinationAccountNumber() == null
+                    || request.getDestinationAccountNumber().isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Destination account ID or destination account number is required"
+                );
+            }
+            Account destByNumber = accountRepository
+                    .findByAccountNumber(request.getDestinationAccountNumber().trim())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Destination account not found"
+                    ));
+            destinationId = destByNumber.getId();
+            request.setDestinationAccountId(destinationId);
+        }
+
+        if (request.getSourceAccountId().equals(destinationId)) {
 
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -248,7 +266,7 @@ public class MoneyTransactionService {
                         TransactionType.TRANSFER,
                         request.getAmount(),
                         request.getSourceAccountId(),
-                        request.getDestinationAccountId()
+                        destinationId
                 );
 
         if (existing.isPresent()) {
@@ -256,7 +274,6 @@ public class MoneyTransactionService {
         }
 
         Long sourceId = request.getSourceAccountId();
-        Long destinationId = request.getDestinationAccountId();
 
         // Always acquire account locks in ascending ID order.
         // This reduces the possibility of deadlocks.
@@ -398,6 +415,16 @@ public class MoneyTransactionService {
                 .findByAccountIdOrderByCreatedAtAscIdAsc(account.getId())
                 .stream()
                 .map(LedgerEntryResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<MoneyTransactionResponse> getMyTransactions(Long userId) {
+
+        return transactionRepository
+                .findAllByUserId(userId)
+                .stream()
+                .map(MoneyTransactionResponse::from)
                 .toList();
     }
 

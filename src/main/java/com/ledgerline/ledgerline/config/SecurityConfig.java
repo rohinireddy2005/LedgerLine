@@ -1,6 +1,7 @@
 
 package com.ledgerline.ledgerline.config;
 
+import java.util.Arrays;
 import java.util.List;
 
 import jakarta.servlet.DispatcherType;
@@ -86,9 +87,16 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(
-                List.of(allowedOrigin)
-        );
+        List<String> origins = Arrays.stream(allowedOrigin.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .toList();
+
+        if (origins.contains("*")) {
+            configuration.addAllowedOriginPattern("*");
+        } else {
+            configuration.setAllowedOrigins(origins);
+        }
 
         configuration.setAllowedMethods(
                 List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")

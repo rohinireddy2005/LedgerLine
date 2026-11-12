@@ -1,4 +1,3 @@
-
 package com.ledgerline.ledgerline.service;
 
 import java.security.SecureRandom;
@@ -9,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.ledgerline.ledgerline.dto.AccountLookupResponse;
 import com.ledgerline.ledgerline.dto.AccountResponse;
 import com.ledgerline.ledgerline.entity.Account;
 import com.ledgerline.ledgerline.entity.AppUser;
@@ -73,6 +73,45 @@ public class AccountService {
                 ));
 
         return AccountResponse.from(account);
+    }
+
+    @Transactional(readOnly = true)
+    public AccountLookupResponse lookupAccount(String accountNumber) {
+
+        if (accountNumber == null || accountNumber.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Account number is required"
+            );
+        }
+
+        Account account = accountRepository.findByAccountNumber(accountNumber.trim())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Recipient account not found"
+                ));
+
+        String fullName = account.getOwner().getFullName();
+        String maskedName = maskName(fullName);
+
+        return new AccountLookupResponse(
+                account.getAccountNumber(),
+                account.getCurrency(),
+                account.getStatus(),
+                maskedName
+        );
+    }
+
+    private String maskName(String name) {
+        if (name == null || name.isBlank()) {
+            return "Account Holder";
+        }
+        String[] parts = name.trim().split("\\s+");
+        if (parts.length == 1) {
+            String p = parts[0];
+            return p.length() > 2 ? p.charAt(0) + "***" + p.charAt(p.length() - 1) : p + "***";
+        }
+        return parts[0] + " " + parts[parts.length - 1].charAt(0) + ".";
     }
 
     private String generateUniqueAccountNumber() {

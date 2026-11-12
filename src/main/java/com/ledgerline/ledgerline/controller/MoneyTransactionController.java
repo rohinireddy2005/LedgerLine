@@ -116,6 +116,17 @@ public class MoneyTransactionController {
                 .body(response);
     }
 
+    @GetMapping
+    public ResponseEntity<List<MoneyTransactionResponse>> getMyTransactions(
+            Authentication authentication) {
+
+        Long userId = getAuthenticatedUserId(authentication);
+
+        return ResponseEntity.ok(
+                transactionService.getMyTransactions(userId)
+        );
+    }
+
     @GetMapping("/accounts/{accountId}/ledger")
     public ResponseEntity<List<LedgerEntryResponse>> getMyLedger(
             @PathVariable Long accountId,

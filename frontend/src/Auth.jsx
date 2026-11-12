@@ -96,7 +96,7 @@ function Auth({ onLogin }) {
 
       if (error instanceof TypeError) {
         setMessage(
-          'Cannot connect to the backend. Check that Spring Boot is running and that CORS is configured.'
+          'Unable to connect to banking service. Please check your network connection.'
         )
       } else {
         setMessage(error.message)

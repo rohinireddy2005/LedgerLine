@@ -130,4 +130,31 @@ class AccountServiceTest {
                 exception.getStatusCode().value()
         );
     }
+
+    @Test
+    void lookupAccountByNumberReturnsMaskedNameAndDetails() {
+
+        when(accountRepository.findByAccountNumber("LL123456789012"))
+                .thenReturn(Optional.of(account));
+
+        var result = accountService.lookupAccount("LL123456789012");
+
+        assertEquals("LL123456789012", result.accountNumber());
+        assertEquals("INR", result.currency());
+        assertEquals("Test U.", result.ownerDisplayName());
+    }
+
+    @Test
+    void lookupNonexistentAccountReturnsNotFound() {
+
+        when(accountRepository.findByAccountNumber("LL000000000000"))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> accountService.lookupAccount("LL000000000000")
+        );
+
+        assertEquals(404, exception.getStatusCode().value());
+    }
 }

@@ -53,4 +53,10 @@ class SecurityConfigTest {
                         .content("{}")
         ).andExpect(status().isBadRequest());
     }
+
+    @Test
+    void meEndpointShouldRejectUnauthenticatedRequest() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized());
+    }
 }
