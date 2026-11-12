@@ -270,3 +270,4 @@ export default function ProfileModal({ user, role, isOpen, onClose, onPasswordCh
     </Modal>
   )
 }
+

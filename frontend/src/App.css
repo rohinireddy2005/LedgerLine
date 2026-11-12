@@ -2815,3 +2815,284 @@
     border-bottom: 1px solid #e2e8f0;
   }
 }
+
+/* ==========================================================================
+   REAL-WORLD DIGITAL BANKING UI ENHANCEMENTS:
+   VIRTUAL CARDS, QUICK PILLS, RECEIPT STYLING & CLEAN FINTECH ALIGNMENTS
+   ========================================================================== */
+
+/* Virtual Bank Card Component */
+.virtual-bank-card {
+  position: relative;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%);
+  color: #FFFFFF;
+  border-radius: 14px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25), 0 8px 10px -6px rgba(15, 23, 42, 0.15);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 230px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.virtual-bank-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 30px -5px rgba(15, 23, 42, 0.35);
+}
+
+.card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-brand-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-brand-logo {
+  width: 24px;
+  height: 24px;
+  background: #2563eb;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: #ffffff;
+}
+
+.card-brand-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #f8fafc;
+}
+
+.card-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.emv-chip {
+  width: 38px;
+  height: 28px;
+  background: linear-gradient(135deg, #d4af37, #f7e08b, #c59b27);
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  position: relative;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.contactless-icon {
+  font-size: 1.125rem;
+  color: #94a3b8;
+  letter-spacing: -2px;
+  transform: rotate(90deg);
+  display: inline-block;
+}
+
+.card-balance-block {
+  margin: 0.5rem 0;
+}
+
+.card-balance-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.card-balance-val {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.currency-sign {
+  font-size: 1.25rem;
+  color: #38bdf8;
+  margin-right: 0.25rem;
+}
+
+.card-number-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0.5rem 0 1rem;
+  padding: 0.4rem 0.65rem;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card-number {
+  font-size: 0.875rem;
+  letter-spacing: 0.12em;
+  color: #e2e8f0;
+}
+
+.card-copy-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.2rem;
+  display: grid;
+  place-items: center;
+  transition: color var(--transition-fast);
+}
+
+.card-copy-btn:hover {
+  color: #ffffff;
+}
+
+.card-bottom-actions {
+  display: flex;
+  gap: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 0.875rem;
+}
+
+.card-quick-action {
+  flex: 1;
+  padding: 0.45rem 0.65rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.card-quick-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.card-quick-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Latest Transactions Flow Icons */
+.tx-cell-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tx-flow-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tx-flow-icon.deposit {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.tx-flow-icon.withdrawal {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.tx-flow-icon.transfer {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Funding Notice Card (Deposit) */
+.funding-notice-card {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.funding-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.35rem;
+}
+
+.funding-sub {
+  font-size: 0.8125rem;
+  color: #166534;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Quick Amount Pills */
+.amount-quick-pills {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.quick-amount-btn {
+  padding: 0.35rem 0.65rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quick-amount-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+  color: var(--color-primary);
+  border-color: #cbd5e1;
+}
+
+/* Receipt Actions Row */
+.receipt-actions-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Statement Disclaimer Card */
+.statement-disclaimer-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-top: 1.5rem;
+}
+
+.disclaimer-text {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}

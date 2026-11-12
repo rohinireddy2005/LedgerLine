@@ -396,15 +396,11 @@ export default function LedgerView({ accounts }) {
         </div>
       )}
 
-      <div className="ledger-security-banner">
-        <IconShield className="w-5 h-5 text-emerald" />
-        <div>
-          <strong>Certified Balance Statement</strong>
-          <p>
-            This statement reflects permanent, audited financial records.
-            All debits and credits are mathematically balanced and verified in real time.
-          </p>
-        </div>
+      <div className="statement-disclaimer-card">
+        <IconShield className="w-4 h-4 text-emerald" />
+        <span className="disclaimer-text">
+          LedgerLine Digital Banking • Certified Account Statement • Permanent Records
+        </span>
       </div>
     </div>
   )

@@ -182,7 +182,7 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
             </div>
             <div className="read-only-badge">
               <IconShield className="w-4 h-4 text-emerald" />
-              <span>STRICT READ-ONLY AUDIT ACCESS</span>
+              <span>Auditor Portal • Read-Only</span>
             </div>
           </div>
 
@@ -232,12 +232,12 @@ export default function AuditorPortal({ activeTab, onNavigateTab }) {
             <div className="compliance-body">
               <h4>Regulatory Compliance & Audit Oversight</h4>
               <p>
-                LedgerLine implements strict separation of duties. As an Auditor, you possess read-only visibility into all accounts, transactions, and ledger records without ability to execute financial mutations or alter balances.
+                LedgerLine provides independent compliance oversight. Auditors possess read-only inspection access across all customer accounts, transactions, and ledger records.
               </p>
               <div className="compliance-badges">
-                <span className="audit-chip">Double-Entry Certified</span>
-                <span className="audit-chip">Duplicate Protection Active</span>
-                <span className="audit-chip">Real-Time Reconciled</span>
+                <span className="audit-chip">Compliance Monitored</span>
+                <span className="audit-chip">Real-Time Audit Trail</span>
+                <span className="audit-chip">Verified Records</span>
               </div>
             </div>
           </div>
